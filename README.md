@@ -5,7 +5,9 @@ brass is a utility designed to run brew on endpoints with multiple users.
 
 ## Installation
 
-TBD
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/testing-update/brass.sh)"
+```
 
 ## Usage
 ```bash
