@@ -34,12 +34,6 @@ fi)
 #>
 #< functions
 check() {
-  #< Checks to see if brass is installed
-  if [[ ! -f /usr/local/bin/brass ]]; then
-    echo "Installing brass to /usr/local/bin/brass"
-    brassUpgrade
-  fi
-  #>
   #< Checks to see if xcode is installed
   if [[ ! -d $xcodeDir ]]; then
     printf "xcode directory not defined\n"
@@ -90,6 +84,12 @@ check() {
       *) help;;
     esac
   done
+  #< Checks to see if brass is installed
+  if [[ ! -f /usr/local/bin/brass ]]; then
+    echo "Installing brass to /usr/local/bin/brass"
+    brassUpgrade
+  fi
+  #>
   if [ $OPTIND -eq 1 ]; then brewAsUser; brewDo "$@"; fi
   #>
   #< This makes sure any sudo modificatoins are reversed
