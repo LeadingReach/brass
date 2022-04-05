@@ -3,6 +3,9 @@
 
 brass is a utility designed to run brew on endpoints with multiple users.
 
+## Disclaimer
+This script requires sudo access for many of its functions. This script may modify the sudoers file.  Run this script at your own risk.
+
 ## Installation
 
 ```bash
