@@ -214,19 +214,19 @@ user@mac$ sudo brass -nls user -p sl
     user@mac$ brass -up sl -b
 
 
-  -q: Checks for brass Updates
+-q: Checks for brass Updates
 
-      # This will check for brass update
-      admin@mac$ brass -q
-      brass update Enabled
-      brass update available. Would you like to update to the latest version of brass? [Y/N] y
-      Installing brass to /usr/local/bin
+    # This will check for brass update
+    admin@mac$ brass -q
+    brass update Enabled
+    brass update available. Would you like to update to the latest version of brass? [Y/N] y
+    Installing brass to /usr/local/bin
 
-      # This will check for brass update and update if found with no interaction.
-      admin@mac$ brass -lnq
-      brass update Enabled
-      brass update available.
-      Installing brass to /usr/local/bin
+    # This will check for brass update and update if found with no interaction.
+    admin@mac$ brass -lnq
+    brass update Enabled
+    brass update available.
+    Installing brass to /usr/local/bin
 
 
 -h: Shows brass help
