@@ -61,26 +61,24 @@ check() {
   fi
   #>
   #< This checks for flags
-  while getopts 'Xxa:mz:up:od:IiRrSsbnlfh' flag; do
+  while getopts 'Xx:mzup:od:IiRrs:bqnlafh' flag; do
     case "${flag}" in
       X) xcodeCall "$@";;
       x) xcodeUpdate;;
-      a) user="$OPTARG"; ifAdmin=1; brewAsUser;;
       m) user="$consoleUser"; ifAdmin=1; brewAsUser;;
-      z) user="$OPTARG"; brewAsUser;;
+      s) user="$OPTARG"; brewAsUser;;
       u) brewUpdate;;
       p) package="$OPTARG"; brewPackage;;
       o) brewOwnPackage=1;;
       d) package="$OPTARG"; brewRmPackage;;
       i) brewAsUser; brewInstall;;
-      I) headless="1"; brewUser; brewInstall;;
       r) brewAsUser; brewRemove;;
-      R) headless=1; brewUser; brewRemove;;
-      s) brewAsUser; brewReset;;
-      S) headless=1; brewAsUser; brewReset;;
+      z) brewAsUser; brewReset;;
       b) brewDebug;;
-      n) noWarnning=1;;
-      l) headless=1;;
+      q) brassUpdate;;
+      n) noWarnning="1";;
+      l) headless="1";;
+      a) ifAdmin="1";;
       f) flags;;
       h) help;;
       *) help;;
@@ -243,7 +241,7 @@ brewAsUser() {
   fi
   #>
   #< Checks to see if headless mode is enabled
-  if [[ ! -z $headless ]]; then
+  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
     ifAdmin
     headless
     brewOwnDirs
@@ -321,8 +319,8 @@ brewInstall () {
   brewOwnDirs
   #>
   #< Sets install command as Target user, inserts return signal to initiate brew install, and installs brew.
-  /usr/bin/sudo -u $user NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  echo "Brew install compleate"
+   yes | sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  echo "Brew install complete"
   #>
 }
 brewPackage () {
@@ -422,12 +420,8 @@ brewReset(){
 brewCheck() {
   #< Checks to see if brew is installed
   if [[ -z $brewUser ]]; then
-    if [[ -z $headless ]]; then
-      printf "\n brew installation not found. Please install brew with brass -i\n"
-      exit
-    else
-      brewInstall
-    fi
+    user=$consoleUser
+    brewInstall
   fi
   #>
 }
@@ -470,14 +464,45 @@ brewDebug () {
 	brewDo --cache | sed 's/^/\t\t/'
 	brewDo --cache | sed 's/^/\t\t/'
 }
-#>
-#< script functions
 brewDo() {
   /usr/bin/sudo -i -u $user $brewBinary "$@"
 }
+#>
+#< script functions
+brassUpgrade() {
+  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
+  printf "upgrade complete.\n"
+}
+brassUpdate() {
+  brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
+  brassData=$(cat $brassBinary)
+  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/testing-update/brass.sh)
+  brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
+  if [[ -z $brassDif ]]; then
+    printf "brass is up to date.\n"
+  else
+    if [[ -z $headless ]]; then
+      read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
+      case $yn in
+          [Yy]* ) brassUpgrade;;
+          [Nn]* ) printf "Skipping update\n";;
+          * ) echo "Please answer yes or no.";;
+      esac
+    else
+      if [[ -z $noWarnning ]]; then
+        printf "brass update available. use flag -n to automatically install the latest version of brass\n"
+      else
+        brassUpgrade
+      fi
+    fi
+  fi
+  if [[ ! -z "${UPGRADE-}" ]]; then
+    brassUpgrade
+  fi
+}
 warning() {
   if [[ -z $noWarnning ]]; then
-  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after compleation)\n"
+  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
     printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
     sp="9876543210"
   	secs=$(perl -e 'print time(), "\n"')
@@ -505,7 +530,7 @@ noSudo() {
   done
 }
 forcePass() {
-  if [ ! -z $headless ]; then
+  if [ ! -z $headless ] && [ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "#brass") ]; then
     printf "removing brass sudoers entries\n"
     sed -i '' '/#brass/d' /etc/sudoers
   fi
@@ -543,16 +568,16 @@ help () {
   brass can use its own flags to specify which user should run brew.
   When using brass flags, the standard brew commands such as install and info no longer work.
 
-  admin@mac\$ brass -z admin
+  admin@mac\$ brass -s admin
     user admin found
 
 
-  user@mac\$ sudo brass -z admin
+  user@mac\$ sudo brass -s admin
     user admin found
 
 
   # Install a package as admin
-  user@mac\$ sudo brass -z admin -p sl
+  user@mac\$ sudo brass -s admin -p sl
     user admin found
     brew is owned by admin
     sl is not installed from brew
@@ -560,32 +585,38 @@ help () {
 
 
   # Uninstall a package as admin
-  user@mac\$ sudo brass -z admin -d sl
+  user@mac\$ sudo brass -s admin -d sl
     user admin found
     brew is owned by admin
     uninstalling sl
 
 
   # Update xcode and brew, then install package sl as user admin with debug information
-  user@mac\$ sudo brass -z admin -xup sl -b
+  user@mac\$ sudo brass -s admin -xup sl -b
 
 
   brass has the ability to change brews ownership.
 
   # Install a package as user
-  user@mac\$ sudo brass -z user -p sl
+  user@mac\$ sudo brass -s user -p sl
     user found: user
     user does not own brew. admin owns brew. Would you like for user to take ownership of brew or use brew as admin? [Own/As/Exit] oae
 
 
   # Install a package as user with no interaction
-  user@mac\$ sudo brass -Z user -p sl
+  user@mac\$ sudo brass -s user -p sl
     user found: user
     user will take ownership of brew
 
 
+  # Install a package as otheradmin unless console user is an admin
+    admin@mac\$ sudo brass -as otheradmin -p sl
+    user found: otheradmin
+    admin is an admin. admin will take ownership of brew
+
+
   # Install a package as user with no interaction and no warning
-  user@mac\$ sudo brass -nZ user -p sl
+  user@mac\$ sudo brass -ns user -p sl
     user found: user
     user will take ownership of brew
   "
@@ -593,10 +624,10 @@ help () {
 }
 flags() {
   echo "
-  -z: Run as user. Root access is required.
+  -s: Run as user. Root access is required.
 
       # This will run all following operations as the admin user
-      user@mac\$ brass -z admin
+      user@mac\$ brass -s admin
 
 
   -a: Run brew as console user if they are an admin. Run brew as a specified user if not. Root access is required.
@@ -624,7 +655,7 @@ flags() {
   -l: NONINTERACTIVE mode
 
       # This will run reguardless of brew owner
-      admin@mac\$ sudo brass -nlz otheradmin -u
+      admin@mac\$ sudo brass -nls otheradmin -u
         otheradmin user found
         warning message Disabled
         headless mode enabled
@@ -634,7 +665,7 @@ flags() {
   -x: Checks for xcode updates.
 
       # This will check for an xcode update and then run as the admin user
-      admin@mac\$ brass -xz admin
+      admin@mac\$ brass -xs admin
 
 
   -u: Checks for brew updates
@@ -644,7 +675,7 @@ flags() {
 
 
       # This will check as a brew update for the admin user
-      user@mac\$ sudo brass -z admin -u
+      user@mac\$ sudo brass -s admin -u
 
 
   -p: Installs a brew package
@@ -658,13 +689,13 @@ flags() {
 
 
       # This will run brew as admin user and then install/update package sl
-      user@mac\$ sudo brass -z admin -up sl
+      user@mac\$ sudo brass -s admin -up sl
 
 
   -o: Sets the currently logged in user as the owner of the package
 
       # This will install the sl package as admin, and then set user as owner of the sl package
-      user@mac\$ brass -z admin -op sl
+      user@mac\$ brass -s admin -op sl
       user found: admin
       installing sl
       ownPackage: enabled
@@ -678,11 +709,11 @@ flags() {
 
 
       # This will install brew as the admin user
-      user@mac\$ sudo brass -z admin -i
+      user@mac\$ sudo brass -s admin -i
 
 
       # This will install brew as the admin user with no warning and no interaction
-      user@mac\$ sudo brass -nlz admin -i
+      user@mac\$ sudo brass -nls admin -i
 
 
   -r: Uninstalls brew
@@ -692,17 +723,17 @@ flags() {
 
 
       # This will uninstall brew as the admin user
-      user@mac\$ sudo brass -z admin -r
+      user@mac\$ sudo brass -s admin -r
 
 
       # This will uninstall brew as the admin user with no warning and no interaction
-      user@mac\$ sudo brass -nlz admin -r
+      user@mac\$ sudo brass -nls admin -r
 
 
-  -s: Reinstalls brew
+  -z: Reinstalls brew
 
       # This will reinstall brew
-      admin@mac\$ brass -s
+      admin@mac\$ brass -z
 
 
       # This will reinstall brew as the admin user
@@ -770,6 +801,15 @@ flags() {
 #>
 #< logic
 if [[ -z $@ ]]; then
+  #< Checks to see if brass is installed
+  if [[ ! -f /usr/local/bin/brass ]]; then
+    echo "Installing brass to /usr/local/bin/brass"
+    brassUpgrade
+    printf "sudo password required to make binary executable.\nPlease enter your password or run sudo chmod +x /usr/local/bin/brass\n"
+    /usr/bin/sudo chmod +x /usr/local/bin/brass
+    printf "done.\n\n"
+  fi
+  #>
   printf "use brass -h for more infomation.\n"
   exit
 fi
