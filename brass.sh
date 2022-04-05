@@ -809,6 +809,9 @@ if [[ -z $@ ]]; then
   if [[ ! -f /usr/local/bin/brass ]]; then
     echo "Installing brass to /usr/local/bin/brass"
     brassUpgrade
+    printf "sudo password required to make binary executable.\nPlease enter your password or run sudo chmod +x /usr/local/bin/brass\n"
+    /usr/bin/sudo chmod +x /usr/local/bin/brass
+    printf "done.\n\n"
   fi
   #>
   printf "use brass -h for more infomation.\n"
