@@ -63,7 +63,7 @@ user@mac\$ sudo brass -s user -p sl
 
 
 # Install a package as user with no interaction
-user@mac\$ sudo brass -s user -p sl
+user@mac\$ sudo brass -ls user -p sl
   user found: user
   user will take ownership of brew
 
@@ -75,7 +75,7 @@ user@mac\$ sudo brass -s user -p sl
 
 
 # Install a package as user with no interaction and no warning
-user@mac\$ sudo brass -ns user -p sl
+user@mac\$ sudo brass -nls user -p sl
   user found: user
   user will take ownership of brew
 "
