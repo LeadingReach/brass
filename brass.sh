@@ -90,7 +90,7 @@ check() {
     brassUpgrade
   fi
   #>
-  if [ $OPTIND -eq 1 ]; then brewAsUser; brewDo "$@"; fi
+  if [ $OPTIND -eq 1 ]; then echo "$(ls /usr/local/bin)"; brewAsUser; brewDo "$@"; fi
   #>
   #< This makes sure any sudo modificatoins are reversed
   forcePass
