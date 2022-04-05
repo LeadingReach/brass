@@ -476,7 +476,7 @@ brassUpgrade() {
 brassUpdate() {
   brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
   brassData=$(cat $brassBinary)
-  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/testing-update/brass.sh)
+  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh)
   brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
   if [[ -z $brassDif ]]; then
     printf "brass is up to date.\n"
