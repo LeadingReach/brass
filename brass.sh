@@ -530,7 +530,7 @@ noSudo() {
   done
 }
 forcePass() {
-  if [ ! -z $headless ] && [ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "#brass") ]; then
+  if [[ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep "#brass" | awk 'NR==1{print $1}') ]]; then
     printf "removing brass sudoers entries\n"
     sed -i '' '/#brass/d' /etc/sudoers
   fi
