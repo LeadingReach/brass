@@ -34,6 +34,11 @@ fi)
 #>
 #< functions
 check() {
+  #< Checks to see if brass is installed
+  if [[ ! -f /usr/local/bin/brass ]]; then
+    echo "Installing brass to /usr/local/bin/brass"
+  fi
+  #>
   #< Checks to see if xcode is installed
   if [[ ! -d $xcodeDir ]]; then
     printf "xcode directory not defined\n"
@@ -320,7 +325,7 @@ brewInstall () {
   #>
   #< Sets install command as Target user, inserts return signal to initiate brew install, and installs brew.
   /usr/bin/sudo -u $user NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  echo "Brew install compleate"
+  echo "Brew install complete"
   #>
 }
 brewPackage () {
@@ -474,7 +479,15 @@ brewDo() {
 #>
 #< script functions
 brassUpgrade() {
-  printf "barf\n"
+  #< Checks to see if script is being ran as root
+  if [ "$EUID" -ne 0 ] && [[ $user != $consoleUser ]] ;then
+    echo "Updating brass requires sudo priviledges"
+    exit
+  else
+      /usr/bin/sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
+      printf "upgrade complete.\n"
+  fi
+
 }
 brassUpdate() {
   brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
@@ -499,10 +512,13 @@ brassUpdate() {
       fi
     fi
   fi
+  if [[ ! -z "${UPGRADE-}" ]]; then
+    brassUpgrade
+  fi
 }
 warning() {
   if [[ -z $noWarnning ]]; then
-  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after compleation)\n"
+  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
     printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
     sp="9876543210"
   	secs=$(perl -e 'print time(), "\n"')
@@ -530,7 +546,7 @@ noSudo() {
   done
 }
 forcePass() {
-  if [ ! -z $headless ]; then
+  if [ ! -z $headless ] && [ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "#brass") ]; then
     printf "removing brass sudoers entries\n"
     sed -i '' '/#brass/d' /etc/sudoers
   fi
