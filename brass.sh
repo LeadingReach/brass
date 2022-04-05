@@ -474,7 +474,7 @@ brewDo() {
 #>
 #< script functions
 brassUpgrade() {
-  /usr/bin/sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
+  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
   printf "upgrade complete.\n"
 }
 brassUpdate() {
