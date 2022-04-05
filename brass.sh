@@ -84,13 +84,6 @@ check() {
       *) help;;
     esac
   done
-  #< Checks to see if brass is installed
-  if [[ ! -f /usr/local/bin/brass ]]; then
-    echo "Installing brass to /usr/local/bin/brass"
-    brassUpgrade
-  fi
-  echo "$(ls /usr/local/bin)"
-  #>
   if [ $OPTIND -eq 1 ]; then brewAsUser; brewDo "$@"; fi
   #>
   #< This makes sure any sudo modificatoins are reversed
@@ -819,6 +812,12 @@ flags() {
 #>
 #< logic
 if [[ -z $@ ]]; then
+  #< Checks to see if brass is installed
+  if [[ ! -f /usr/local/bin/brass ]]; then
+    echo "Installing brass to /usr/local/bin/brass"
+    brassUpgrade
+  fi
+  #>
   printf "use brass -h for more infomation.\n"
   exit
 fi
