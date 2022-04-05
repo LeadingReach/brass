@@ -474,15 +474,8 @@ brewDo() {
 #>
 #< script functions
 brassUpgrade() {
-  #< Checks to see if script is being ran as root
-  if [ "$EUID" -ne 0 ] && [[ $user != $consoleUser ]] ;then
-    echo "Updating brass requires sudo priviledges"
-    exit
-  else
-      /usr/bin/sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
-      printf "upgrade complete.\n"
-  fi
-
+  /usr/bin/sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
+  printf "upgrade complete.\n"
 }
 brassUpdate() {
   brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
