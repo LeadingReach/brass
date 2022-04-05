@@ -319,7 +319,7 @@ brewInstall () {
   brewOwnDirs
   #>
   #< Sets install command as Target user, inserts return signal to initiate brew install, and installs brew.
-  /usr/bin/sudo -u $user NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   yes | sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   echo "Brew install complete"
   #>
 }
@@ -420,12 +420,8 @@ brewReset(){
 brewCheck() {
   #< Checks to see if brew is installed
   if [[ -z $brewUser ]]; then
-    if [[ -z $headless ]]; then
-      printf "\n brew installation not found. Please install brew with brass -i\n"
-      exit
-    else
-      brewInstall
-    fi
+    user=$consoleUser
+    brewInstall
   fi
   #>
 }
