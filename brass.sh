@@ -37,6 +37,7 @@ check() {
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
     echo "Installing brass to /usr/local/bin/brass"
+    brassUpgrade
   fi
   #>
   #< Checks to see if xcode is installed
