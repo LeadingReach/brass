@@ -152,7 +152,21 @@ user@mac$ sudo brass -nls user -p sl
     user@mac$ sudo brass -s admin -up sl
 
 
--o: Sets the currently logged in user as the owner of the package
+-t: Renstalls a brew package
+
+    # This will reinstall the brew package sl
+    admin@mac$ brass -tp sl
+
+
+    # This will update brew and then reinstall the package sl
+    admin@mac$ brass -utp sl
+
+
+    # This will run brew as admin user and then reinstall package sl
+    user@mac$ sudo brass -s admin -utp sl
+
+
+-o: TEMPORARILY DISABLED Sets the currently logged in user as the owner of the package
 
     # This will install the sl package as admin, and then set user as owner of the sl package
     user@mac$ brass -s admin -op sl
@@ -202,6 +216,15 @@ user@mac$ sudo brass -nls user -p sl
 
     # This will reinstall brew as the admin user with no warning and no interaction
     user@mac$ sudo brass -nlz admin -s
+
+
+-w: Displays GUI notification.
+
+    # This will warn the user that brew is going to update with a popup window
+    admin@mac$ brass -w Updating brew -u
+
+    # This will warn the user that brew is going to reinstall sl and then notify the user when it is complete.
+    admin@mac$ brass -w reinstalling sl. This may take some time. -tp sl -w sl has been reinstalled. Train away.
 
 
 -b: Shows debug information.

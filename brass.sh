@@ -16,7 +16,7 @@ fi
 brewVar="/usr/local/var/homebrew"
 brewLocal="/usr/local/Homebrew"
 brewLocalBin="/usr/local/bin/brew"
-brewCellar="$brewDir/Cellar"
+brewCellar="/usr/local/Cellar"
 brewCaskroom="$brewDir/Caskroom"
 brewCache="$brewDir/Cache"
 xcodeDir=$(xcode-select -p)
@@ -61,16 +61,18 @@ check() {
   fi
   #>
   #< This checks for flags
-  while getopts 'Xx:mzup:od:IiRrs:bqnlafh' flag; do
+  while getopts 'Xx:w:mzup:od:tIiRrs:bqnlafh' flag; do
     case "${flag}" in
       X) xcodeCall "$@";;
       x) xcodeUpdate;;
+      w) dialog=$(echo "$@" | awk -F "-w" '{print $2}' | awk -F"-" '{print $1}'); set=$(echo "$@" | awk -F"$dialog" '{print $2}'); notify;;
       m) user="$consoleUser"; ifAdmin=1; brewAsUser;;
       s) user="$OPTARG"; brewAsUser;;
       u) brewUpdate;;
       p) package="$OPTARG"; brewPackage;;
-      o) brewOwnPackage=1;;
+      #o) brewOwnPackage=1;;
       d) package="$OPTARG"; brewRmPackage;;
+      t) brewResetPackage="1";;
       i) brewAsUser; brewInstall;;
       r) brewAsUser; brewRemove;;
       z) brewAsUser; brewReset;;
@@ -87,7 +89,9 @@ check() {
   if [ $OPTIND -eq 1 ]; then brewAsUser; brewDo "$@"; fi
   #>
   #< This makes sure any sudo modificatoins are reversed
-  forcePass
+  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
+    forcePass
+  fi
   #>
 }
 #< xcode funtions
@@ -286,6 +290,26 @@ brewOwnDirs () {
   done
   #>
 }
+brewEnv () {
+  #< Uses the brew user's enviroment variables
+  eval $(/usr/bin/sudo -i -u $user printenv | grep -v "\-c")
+  #>
+  #< Sets enviroment variables
+  brewSetEnv=("HOMEBREW_CELLAR=$brewCellar")
+  #>
+  #< Sets an action to be taken on each item in the aray
+  for str in ${brewSetEnv[@]}; do
+    sudo -u $user export $str
+  done
+  #>
+  brewDo --cellar
+}
+brewEnvOLD() {
+  #< Uses the brew user's enviroment variables
+  eval $(/usr/bin/sudo -i -u $user printenv | grep -v "\-c")
+  export HOMEBREW_CELLAR=$brewCellar
+  #>
+}
 brewRemove () {
   #< Moves into the brew users directory
   cd /Users/$user/
@@ -336,28 +360,6 @@ brewPackage () {
   echo "Brew is owned by $user"
   cd /Users/$user/
   #>
-  #< If $brewResetPackage is enabled, it will reinstall the brew package If $brewResetPackage is not enabled, it will install the package if it's not installed
-  if [[ $brewResetPackage != 1 ]]; then
-    #< Checks to see if package is installed. If so, skip installation
-    if [[ ! -z $(brewDo list | grep $package) ]]; then
-      echo "$package is installed"
-    else
-      #< Uses the brew user's enviroment variables
-      eval $(/usr/bin/sudo -i -u $user printenv | grep -v "\-c")
-      #>
-      #< Installs the package with the force flag
-      printf "$package is not installed from brew\n\n"
-      brewDo install -f $package
-      #>
-    fi
-    #>
-  else
-    #< Installs the package with the force flag
-    echo "brewResetPackage enabled"
-    brewDo install $package -f
-    #>
-  fi
-  #>
   #< Sets package variables
   if [[ -z $(ls $brewCellar | grep $package) ]]; then
     packageDir="$brewCaskroom/$package"
@@ -370,28 +372,34 @@ brewPackage () {
     packageLink=$packageDir
   fi
   #>
-  #< Sets the console user to own the package if enabled
-  if [[ ! -z $brewOwnPackage ]]; then
-    printf "ownPackage: enabled\n"
-    if [[ $consoleUser != $packageOwner ]]; then
-      printf "Setting $consoleUser to own $packageLink\n"
-      /usr/bin/sudo chown -R $consoleUser $packageLink
-      /usr/bin/sudo chown -R $consoleUser $packageDir
+  #< If $brewResetPackage is enabled, it will reinstall the brew package If $brewResetPackage is not enabled, it will install the package if it's not installed
+  if [[ -z $brewResetPackage ]]; then
+    #< Checks to see if package is installed. If so, skip installation
+    if [[ ! -z $(brewDo list | grep $package) ]]; then
+      echo "$package is installed"
     else
-      printf "$consoleUser owns $packageLink\n"
+      brewEnv
+      #< Installs the package with the force flag
+      printf "$package is not installed from brew\n\n"
+      brewDo install -f $package
+      #>
     fi
+    #>
   else
-    #< Sets the brew user to own the package if they do not own it.
-    if [[ $user != $packageOwner ]]; then
-      printf "Setting $user to own $packageLink.\n"
-      /usr/bin/sudo chown -R $user: $packageLink
-      /usr/bin/sudo chown -R $user: $packageDir
-    else
-      printf "$user owns $packageLink.\n"
-    fi
+    #< Runs brewResetPackage
+    echo "brewResetPackage enabled"
+    brewResetPackage
     #>
   fi
   #>
+  #brewOwnPackage
+}
+brewResetPackage() {
+  brewPackageProcess=$(echo $packageName | awk -F".app" '{ print $1 }')
+  pkill -9 -f $brewPackageProcess
+  brewRmPackage
+  brewEnv
+  brewDo install -f $package
 }
 brewRmPackage () {
   brewUser
@@ -466,6 +474,30 @@ brewDebug () {
 }
 brewDo() {
   /usr/bin/sudo -i -u $user $brewBinary "$@"
+}
+brewOwnPackage() {
+  #< Sets the console user to own the package if enabled
+  if [[ ! -z $brewOwnPackage ]]; then
+    printf "ownPackage: enabled\n"
+    if [[ $consoleUser != $packageOwner ]]; then
+      printf "Setting $consoleUser to own $packageLink\n"
+      /usr/bin/sudo chown -R $consoleUser "$packageLink"
+      /usr/bin/sudo chown -R $consoleUser "$packageDir"
+    else
+      printf "$consoleUser owns $packageLink\n"
+    fi
+  else
+    #< Sets the brew user to own the package if they do not own it.
+    if [[ $user != $packageOwner ]]; then
+      printf "Setting $user to own $packageLink.\n"
+      /usr/bin/sudo chown -R $user: "$packageLink"
+      /usr/bin/sudo chown -R $user: "$packageDir"
+    else
+      printf "$user owns $packageLink.\n"
+    fi
+    #>
+  fi
+  #>
 }
 #>
 #< script functions
@@ -552,6 +584,30 @@ ifAdmin() {
     fi
   fi
   #>
+}
+notifyWIP() {
+  # Will add support for custom title and icon in the future.
+  notifyTimeout="10"
+  notifyTitle="Leading Reach"
+  notifyIconPath="/Library/Application Support/JAMF/bin/LR.png"
+  notifyIconDL="https://leadingreach.jamfcloud.com/stored-images/?id=1"
+  if [[ -z $notifyIconPath ]]; then
+    applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
+  else
+    applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\" with icon POSIX file (\"/Library/Application Support/JAMF/bin/LR.png\" as string)"
+  fi
+  if [ ! -f "$notifyIconPath" ]; then
+    curl $notifyIconDL --output "$notifyIconPath"
+  fi
+  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
+  unset dialog
+}
+notify() {
+  notifyTitle="brass"
+  notifyTimeout="10"
+  applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
+  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
+  unset dialog
 }
 help () {
   echo "
@@ -692,7 +748,22 @@ flags() {
       user@mac\$ sudo brass -s admin -up sl
 
 
-  -o: Sets the currently logged in user as the owner of the package
+  -t: Renstalls a brew package
+
+      # This will reinstall the brew package sl
+      admin@mac\$ brass -tp sl
+
+
+      # This will update brew and then reinstall the package sl
+      admin@mac\$ brass -utp sl
+
+
+      # This will run brew as admin user and then reinstall package sl
+      user@mac\$ sudo brass -s admin -utp sl
+
+
+
+  -o: TEMPORARILY DISABLED Sets the currently logged in user as the owner of the package
 
       # This will install the sl package as admin, and then set user as owner of the sl package
       user@mac\$ brass -s admin -op sl
@@ -742,6 +813,14 @@ flags() {
 
       # This will reinstall brew as the admin user with no warning and no interaction
       user@mac\$ sudo brass -nlz admin -s
+
+  -w: Displays GUI notification.
+
+      # This will warn the user that brew is going to update with a popup window
+      admin@mac\$ brass -w Updating brew -u
+
+      # This will warn the user that brew is going to reinstall sl and then notify the user when it is complete.
+      admin@mac\$ brass -w reinstalling sl. This may take some time. -tp sl -w sl has been reinstalled. Train away.
 
 
   -b: Shows debug information.
@@ -829,5 +908,9 @@ if [[ -z $@ ]]; then
   exit
 fi
 check $@
+OPTIND=1
+if [[ ! -z $set ]]; then
+  check $set
+fi
 #>
 #>
