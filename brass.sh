@@ -45,7 +45,7 @@ sysEnv() {
   xcodeDir=$(xcode-select -p)
 }
 #>
-
+#< Script Functions
 check() {
   #< This checks for flags
   while getopts 'ZXxs:iruzp:d:tfnlaw:bq' flag; do
@@ -71,8 +71,101 @@ check() {
       *) help;;
     esac
   done
+  if [ $OPTIND -eq 1 ]; then brewUser; brewDo "$@"; fi
+  #< This makes sure any sudo modificatoins are reversed
+  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
+    forcePass
+  fi
+  #>
 }
-
+notify() {
+  notifyTitle="brass"
+  notifyTimeout="10"
+  applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
+  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
+  unset dialog
+}
+userDo() {
+  if [[ $consoleUser == $user ]]; then
+      "$@"
+  else
+    /usr/bin/sudo -i -u $user "$@"
+  fi
+}
+noSudo() {
+  dirSudo=("/usr/sbin/chown" "/bin/launchctl" "$brewBinary")
+  for str in ${dirSudo[@]}; do
+    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
+      printf "Modifying /etc/sudoers to allow $user to run $str as root without a password\n"
+      echo "$user         ALL = (ALL) NOPASSWD: $str #brass" | sudo EDITOR='tee -a' visudo
+    else
+      printf "etc/sudoers already allows $user to run $str as root without a password\n"
+    fi
+  done
+}
+headless() {
+  headless="1"
+  if [ "$EUID" -ne 0 ];then
+    echo "Headless mode must run as root"
+    exit
+  fi
+  warning
+  noSudo
+}
+ifAdmin() {
+  ifAdmin="1"
+  if [[ $userClass == "admin" ]]; then
+    printf "Brew admin enabled: $consoleUser is an admin user. Running brew as $consoleUser\n"
+    user=$consoleUser
+  fi
+}
+warning() {
+  if [[ -z $noWarnning ]]; then
+  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
+    printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
+    sp="9876543210"
+  	secs=$(perl -e 'print time(), "\n"')
+  	((targetsecs=secs+10))
+    while ((secs < targetsecs))
+    do
+      printf "\b${sp:i++%${#sp}:1}"
+  		sleep 1
+  		secs=$(perl -e 'print time(), "\n"')
+    done
+    sleep 1
+  	printf "\nYou have been warned.\n"
+    sleep 1
+  fi
+}
+brassUpdate() {
+  brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
+  brassData=$(cat $brassBinary)
+  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh)
+  brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
+  if [[ -z $brassDif ]]; then
+    printf "brass is up to date.\n"
+  else
+    if [[ -z $headless ]]; then
+      read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
+      case $yn in
+          [Yy]* ) brassUpgrade;;
+          [Nn]* ) printf "Skipping update\n";;
+          * ) echo "Please answer yes or no.";;
+      esac
+    else
+      if [[ -z $noWarnning ]]; then
+        printf "brass update available. use flag -n to automatically install the latest version of brass\n"
+      else
+        brassUpgrade
+      fi
+    fi
+  fi
+  if [[ ! -z "${UPGRADE-}" ]]; then
+    brassUpgrade
+  fi
+}
+#>
+#>
 #< Brew Functions
 brewUser () {
   # Checks to see who should run brew
@@ -94,11 +187,11 @@ brewUser () {
   fi
   # Use proper env varables
   if [[ -z $brewSystem ]]; then
-    echo "User Mode"
     userEnv
+    echo "User Mode Enabled: Brew binary is located at $brewBinary"
   else
-    echo "System Mode"
     sysEnv
+    echo "System Mode Enabled: Brew binary is located at $brewBinary"
   fi
   brewCheck
   if [[ ! -z $ifAdmin ]]; then
@@ -314,94 +407,6 @@ brewSysRemove () {
   #>
 }
 #>
-#< Script Functions
-userDo() {
-  if [[ $consoleUser == $user ]]; then
-      "$@"
-  else
-    /usr/bin/sudo -i -u $user "$@"
-  fi
-}
-noSudo() {
-  dirSudo=("/usr/sbin/chown" "/bin/launchctl" "$brewBinary")
-  for str in ${dirSudo[@]}; do
-    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
-      printf "Modifying /etc/sudoers to allow $user to run $str as root without a password\n"
-      echo "$user         ALL = (ALL) NOPASSWD: $str #brass" | sudo EDITOR='tee -a' visudo
-    else
-      printf "etc/sudoers already allows $user to run $str as root without a password\n"
-    fi
-  done
-}
-headless() {
-  headless="1"
-  if [ "$EUID" -ne 0 ];then
-    echo "Headless mode must run as root"
-    exit
-  fi
-  warning
-  noSudo
-}
-ifAdmin() {
-  ifAdmin="1"
-  if [[ $userClass == "admin" ]]; then
-    printf "Brew admin enabled: $consoleUser is an admin user. Running brew as $consoleUser\n"
-    user=$consoleUser
-  fi
-}
-warning() {
-  if [[ -z $noWarnning ]]; then
-  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
-    printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
-    sp="9876543210"
-  	secs=$(perl -e 'print time(), "\n"')
-  	((targetsecs=secs+10))
-    while ((secs < targetsecs))
-    do
-      printf "\b${sp:i++%${#sp}:1}"
-  		sleep 1
-  		secs=$(perl -e 'print time(), "\n"')
-    done
-    sleep 1
-  	printf "\nYou have been warned.\n"
-    sleep 1
-  fi
-}
-notify() {
-  notifyTitle="brass"
-  notifyTimeout="10"
-  applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
-  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
-  unset dialog
-}
-brassUpdate() {
-  brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
-  brassData=$(cat $brassBinary)
-  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh)
-  brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
-  if [[ -z $brassDif ]]; then
-    printf "brass is up to date.\n"
-  else
-    if [[ -z $headless ]]; then
-      read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
-      case $yn in
-          [Yy]* ) brassUpgrade;;
-          [Nn]* ) printf "Skipping update\n";;
-          * ) echo "Please answer yes or no.";;
-      esac
-    else
-      if [[ -z $noWarnning ]]; then
-        printf "brass update available. use flag -n to automatically install the latest version of brass\n"
-      else
-        brassUpgrade
-      fi
-    fi
-  fi
-  if [[ ! -z "${UPGRADE-}" ]]; then
-    brassUpgrade
-  fi
-}
-#>
 #< xcode funtions
 xcodeCall() {
   xcodeDir=$(xcode-select -p)
@@ -530,5 +535,4 @@ if [[ ! -z "$set" ]]; then
 else
   echo done
 fi
-#>
 #>
