@@ -76,6 +76,9 @@ check() {
     forcePass
   fi
   #>
+  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
+  forcePass
+  fi
 }
 notify() {
   notifyTitle="brass"
@@ -92,6 +95,7 @@ userDo() {
   fi
 }
 noSudo() {
+  brewCheck
   dirSudo=("/usr/sbin/chown" "/bin/launchctl" "$brewBinary")
   for str in ${dirSudo[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
@@ -101,6 +105,12 @@ noSudo() {
       printf "etc/sudoers already allows $user to run $str as root without a password\n"
     fi
   done
+}
+forcePass() {
+  if [[ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep "#brass" | awk 'NR==1{print $1}') ]]; then
+    printf "removing brass sudoers entries\n"
+    sed -i '' '/#brass/d' /etc/sudoers
+  fi
 }
 headless() {
   headless="1"
