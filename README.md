@@ -24,7 +24,7 @@ This script requires sudo access for many of its functions. This script may modi
 
 ```
 
-###brass can use its own flags to specify which user should run brew.
+### brass can use its own flags to specify which user should run brew.
 ###When using brass flags, the standard brew commands such as install and info no longer work.
 
 ```bash    
@@ -54,7 +54,7 @@ This script requires sudo access for many of its functions. This script may modi
   # Update xcode and brew, then install package sl as user admin with debug information
   user@mac\$ sudo brass -s admin -xup sl -b
 ```
-###brass has the ability to manage the default homebrew prefix.
+### brass has the ability to manage the default homebrew prefix.
 ```
   # Install a package as admin with the default homebrew prefix
   user@mac\$ sudo brass -Zs admin -p sl
