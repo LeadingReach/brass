@@ -25,7 +25,7 @@ This script requires sudo access for many of its functions. This script may modi
 ```
 
 ### brass can use its own flags to specify which user should run brew.
-###When using brass flags, the standard brew commands such as install and info no longer work.
+### When using brass flags, the standard brew commands such as install and info no longer work.
 
 ```bash    
   user@mac\$ sudo brass -s admin
