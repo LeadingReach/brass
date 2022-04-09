@@ -9,7 +9,7 @@ This script requires sudo access for many of its functions. This script may modi
 ## Installation
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://github.com/LeadingReach/brass/blob/brass-local/brass.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
 ```
 
 ## Usage
