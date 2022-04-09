@@ -27,6 +27,7 @@ userEnv(){
 }
 #>
 #< System enviroment variables
+xcodeDir=$(xcode-select -p)
 sysEnv() {
   #< Architecture specific Directory varibales
   if [[ `uname -m` == 'arm64' ]]; then
@@ -41,13 +42,13 @@ sysEnv() {
     brewPath="/usr/local/Homebrew"
   fi
   #>
-  xcodeDir=$(xcode-select -p)
 }
 #>
 #< Script Functions
 check() {
+  xcodeCheck
   #< This checks for flags
-  while getopts 'ZXxs:iruzp:d:tfnlaw:bq' flag; do
+  while getopts 'ZXxs:iruzp:d:tfnlaw:bqhf' flag; do
     case "${flag}" in
       Z) brewSystem="1";;
       X) xcodeCall "$@";;
@@ -67,13 +68,14 @@ check() {
       w) dialog=$(echo "$@" | awk -F "-w" '{print $2}' | awk -F"-" '{print $1}'); set=$(echo "$@" | awk -F"$dialog" '{print $2}'); notify;;
       b) brewDebug;;
       q) brassUpdate;;
+      f) flags;;
+      h) help;;
       *) help;;
     esac
   done
   if [ $OPTIND -eq 1 ]; then brewUser; brewDo "$@"; fi
   #< This makes sure any sudo modificatoins are reversed
   if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
-    echo check
     forcePass
   fi
   #>
@@ -82,6 +84,23 @@ notify() {
   notifyTitle="brass"
   notifyTimeout="10"
   applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
+  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
+  unset dialog
+}
+notifyWIP() {
+  # Will add support for custom title and icon in the future.
+  notifyTimeout="10"
+  notifyTitle="Leading Reach"
+  notifyIconPath="/Library/Application Support/JAMF/bin/LR.png"
+  notifyIconDL="https://leadingreach.jamfcloud.com/stored-images/?id=1"
+  if [[ -z $notifyIconPath ]]; then
+    applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\""
+  else
+    applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notifyTimeout with title \"$notifyTitle\" with icon POSIX file (\"/Library/Application Support/JAMF/bin/LR.png\" as string)"
+  fi
+  if [ ! -f "$notifyIconPath" ]; then
+    curl $notifyIconDL --output "$notifyIconPath"
+  fi
   /usr/bin/osascript -e "$applescriptCode" &> /dev/null
   unset dialog
 }
@@ -105,7 +124,7 @@ noSudo() {
   done
 }
 forcePass() {
-  if [[ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep "#brass" | awk 'NR==1{print $1}') ]]; then
+  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]] && [[ ! -z $(/usr/bin/sudo cat /etc/sudoers | grep "#brass" | awk 'NR==1{print $1}') ]]; then
     printf "removing brass sudoers entries\n"
     sed -i '' '/#brass/d' /etc/sudoers
   fi
@@ -147,7 +166,7 @@ warning() {
 brassUpdate() {
   brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
   brassData=$(cat $brassBinary)
-  brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh)
+  brassGet=$(curl -fsSL https://github.com/LeadingReach/brass/blob/brass-local/brass.sh)
   brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
   if [[ -z $brassDif ]]; then
     printf "brass is up to date.\n"
@@ -206,6 +225,20 @@ brewUser () {
   fi
 }
 brewCheck() {
+  #< Checks to see if brew is installed
+  if [[ -z $brewBinary ]]; then
+    printf "brew directory not defined\n"
+    while true; do
+      read -p "Do you wish to install brew? [Y/N] " yn
+      case $yn in
+          [Yy]* ) brewInstall; break;;
+          [Nn]* ) exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+  fi
+  #>
+  #< Checks to see if brew is owned by the correct user
   if [[ $(stat $brewPath | awk '{print $5}') != $user ]] && [[ -d $brewPath ]]; then
     echo "$user does not own $brewPath"
     if [[ -z $headless ]]; then
@@ -220,6 +253,7 @@ brewCheck() {
       userDo sudo chown -R $user: $brewPath
     fi
   fi
+  #>
 }
 brewDo() {
   if [[ $consoleUser == $user ]]; then
@@ -379,6 +413,7 @@ help () {
 #  # Standard brew commands
 #
 #  admin@mac\$ brass install sl
+#
 #    brass user: admin
 #    System user found: admin
 #    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -389,6 +424,7 @@ help () {
 #  When using brass flags, the standard brew commands such as install and info no longer work.
 #
 #  user@mac\$ sudo brass -s admin
+#
 #    System user found: admin
 #    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #    done
@@ -396,6 +432,7 @@ help () {
 #
 #  # Install a package as admin
 #  user@mac\$ sudo brass -s admin -p sl
+#
 #    System user found: admin
 #    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #    Installing sl
@@ -403,6 +440,7 @@ help () {
 #
 #  # Uninstall a package as admin
 #  user@mac\$ sudo brass -s admin -d sl
+#
 #    System user found: admin
 #    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #    Uninstalling /Users/admin.homebrew/Cellar/sl/5.02... (6 files, 37.5KB)
@@ -416,6 +454,7 @@ help () {
 #
 #  # Install a package as admin with the default homebrew prefix
 #  user@mac\$ sudo brass -Zs admin -p sl
+#
 #    System user found: admin
 #    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
 #    Installing sl
@@ -424,6 +463,7 @@ help () {
 #
 #  # Install a package as a user who doesn't own the default homebrew prefix
 #  user@mac\$ sudo brass -Zp sl
+#
 #    System user found: user
 #    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
 #    user does not own /opt/homebrew
@@ -434,6 +474,7 @@ help () {
 #
 #  # Install a package as a user who doesn't own the default homebrew prefix
 #  user@mac\$ sudo brass -nlZp sl
+#
 #    System user found: user
 #    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
 #    user does not own /opt/homebrew
@@ -444,6 +485,7 @@ help () {
 #
 #  # Install a package as otheradmin unless console user is an admin
 #    admin@mac\$ sudo brass -as otheradmin -p sl
+#
 #    System user found: otheradmin
 #    Brew admin enabled: admin is an admin user. Running brew as admin
 #    User Mode Enabled: Brew binary is located at /Users/carlpetry/.homebrew/bin/brew
@@ -453,6 +495,7 @@ help () {
 #
 #  # Install a package as otheradmin unless console user is an admin with the default homebrew prefix
 #    admin@mac\$ sudo brass -Zas otheradmin -p sl
+#
 #    System user found: otheradmin
 #    Brew admin enabled: admin is an admin user. Running brew as admin
 #    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
@@ -467,13 +510,14 @@ help () {
 #
 #  # You can configure custom text to be displayed in a pop up window at any stage of the script
 #    admin@mac\$ brass -w Starting brew update. -u -w Brew update complete.
+#
 #    #########BRASS#########
 #    #Starting brew update.#
 #    #######################
 #
-#    brass user: carlpetry
-#    System user found: carlpetry
-#    User Mode Enabled: Brew binary is located at /Users/carlpetry/.homebrew/bin/brew
+#    brass user: admin
+#    System user found: admin
+#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #    brewUpdate: Enabled.
 #    Updating brew
 #    Already up-to-date.
@@ -487,6 +531,7 @@ help () {
 #  # with no interaction, no warning, and display debug information
 #  # while showing custom message before and after completion.
 #    admin@mac\$ brass -Znlas otheradmin -w Installing sl. -p sl -b -w done.
+#
 #    System user found: otheradmin
 #    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
 #
@@ -504,26 +549,34 @@ help () {
 }
 flags() {
   echo "
+#  -Z: Run brew with default homebrew prefix
+#
+#      # This will run all following operations as the admin user
+#      user@mac\$ sudo brass -Z
+#      System user found: admin
+#      System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
+#
+#
 #  -s: Run as user. Root access is required.
 #
 #      # This will run all following operations as the admin user
 #      user@mac\$ brass -s admin
+#      System user found: admin
+#      User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
+#
+#      # This will run all following operations as the admin user with the default homebrew prefix
+#      user@mac\$ brass -Zs admin
+#      System user found: admin
+#      System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
 #
 #
 #  -a: Run brew as console user if they are an admin. Run brew as a specified user if not. Root access is required.
 #
 #      # this will run brew as the admin user even though otheradmin has been defined
-#      admin@mac\$ sudo brass -A otheradmin
+#      admin@mac\$ sudo brass -a otheradmin
 #        otheradmin user found.
 #        console user is a local administrator. Continuing as admin.
-#
-#
-#  -m: Run brew as console user if they are an admin. No user must be specifed. Root access is required.
-#
-#    # This will run brew as admin user
-#    admin@mac\$ sudo brass -m
-#      admin user found.
-#      console user is a local administrator. Setting brew to admin
+#        User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #
 #
 #  -n: Disables headless warnning.
@@ -535,10 +588,11 @@ flags() {
 #  -l: NONINTERACTIVE mode
 #
 #      # This will run reguardless of brew owner
-#      admin@mac\$ sudo brass -nls otheradmin -u
+#      admin@mac\$ sudo brass -nls otheradmin
 #        otheradmin user found
 #        warning message Disabled
 #        headless mode enabled
+#        User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #        running as otheradmin
 #
 #
@@ -572,6 +626,16 @@ flags() {
 #      user@mac\$ sudo brass -s admin -up sl
 #
 #
+#  -d: Unnstalls a brew package
+#
+#      # This will install the brew package sl
+#      admin@mac\$ brass -d sl
+#
+#
+#      # This will run brew as admin user and then uninstall package sl
+#      user@mac\$ sudo brass -s admin -d sl
+#
+#
 #  -t: Renstalls a brew package
 #
 #      # This will reinstall the brew package sl
@@ -586,49 +650,47 @@ flags() {
 #      user@mac\$ sudo brass -s admin -utp sl
 #
 #
-#
-#  -o: TEMPORARILY DISABLED Sets the currently logged in user as the owner of the package
-#
-#      # This will install the sl package as admin, and then set user as owner of the sl package
-#      user@mac\$ brass -s admin -op sl
-#      System user found: admin
-#      installing sl
-#      ownPackage: enabled
-#      setting user to own sl
-#
-#
 #  -i: Installs brew
 #
-#      # This will install brew
+#      # This will install brew to the users prefix
 #      admin@mac\$ brass -i
+
+#      # This will install brew to the default prefix
+#      admin@mac\$ brass -Zi
 #
 #
-#      # This will install brew as the admin user
+#      # This will install brew as the admin user to the users prefix
 #      user@mac\$ sudo brass -s admin -i
 #
 #
-#      # This will install brew as the admin user with no warning and no interaction
+#      # This will install brew as the admin user with no warning and no interaction to the users prefix
 #      user@mac\$ sudo brass -nls admin -i
 #
 #
 #  -r: Uninstalls brew
 #
-#      # This will uninstall brew
+#      # This will uninstall brew from the users prefix
 #      admin@mac\$ brass -u
+
+#      # This will uninstall brew from the default prefix
+#      admin@mac\$ brass -Zu
 #
 #
-#      # This will uninstall brew as the admin user
+#      # This will uninstall brew as the admin user from the users prefix
 #      user@mac\$ sudo brass -s admin -r
 #
 #
-#      # This will uninstall brew as the admin user with no warning and no interaction
+#      # This will uninstall brew as the admin user with no warning and no interaction from the users prefix
 #      user@mac\$ sudo brass -nls admin -r
 #
 #
 #  -z: Reinstalls brew
 #
-#      # This will reinstall brew
+#      # This will reinstall brew to the users prefix
 #      admin@mac\$ brass -z
+#
+#      # This will reinstall brew to the default prefix
+#      admin@mac\$ brass -Zz
 #
 #
 #      # This will reinstall brew as the admin user
@@ -784,6 +846,25 @@ xcodeCall() {
     esac
   done
   #>
+}
+xcodeCheck() {
+  #< Checks to see if xcode is installed
+if [[ ! -d $xcodeDir ]]; then
+  if [[ -z $ifAdmin ]]; then
+    printf "xcode directory not defined\n"
+    while true; do
+      read -p "Do you wish to install xcode? [Y/N] " yn
+      case $yn in
+          [Yy]* ) xcodeInstall;;
+          [Nn]* ) exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+  else
+    xcodeInstall
+  fi
+fi
+#>
 }
 xcodeCheckVersion() {
 #< Checks for the currently installed version of xcode
