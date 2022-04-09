@@ -191,7 +191,7 @@ brassUpdate() {
   fi
 }
 brassUpgrade() {
-  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/master/brass.sh > /usr/local/bin/brass
+  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
   printf "upgrade complete.\n"
 }
 #>
