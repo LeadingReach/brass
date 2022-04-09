@@ -73,12 +73,10 @@ check() {
   if [ $OPTIND -eq 1 ]; then brewUser; brewDo "$@"; fi
   #< This makes sure any sudo modificatoins are reversed
   if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
+    echo check
     forcePass
   fi
   #>
-  if [[ ! -z $headless ]] | [[ ! -z $ifAdmin ]]; then
-  forcePass
-  fi
 }
 notify() {
   notifyTitle="brass"
@@ -95,7 +93,7 @@ userDo() {
   fi
 }
 noSudo() {
-  brewCheck
+  brewUser
   dirSudo=("/usr/sbin/chown" "/bin/launchctl" "$brewBinary")
   for str in ${dirSudo[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
