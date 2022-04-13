@@ -27,7 +27,6 @@ userEnv(){
 }
 #>
 #< System enviroment variables
-xcodeDir=$(xcode-select -p)
 sysEnv() {
   #< Architecture specific Directory varibales
   if [[ `uname -m` == 'arm64' ]]; then
@@ -278,20 +277,7 @@ system_ifAdmin() {
 #>
 #< Xcode Funtions
 xcodeCall() {
-  xcodeDir=$(xcode-select -p)
-  #< Checks to see if xcode is installed
-  if [[ ! -d $xcodeDir ]]; then
-    printf "xcode directory not defined\n"
-    while true; do
-      read -p "Do you wish to install xcode? [Y/N] " yn
-      case $yn in
-          [Yy]* ) xcodeInstall;;
-          [Nn]* ) exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    done
-  fi
-  #>
+  xcodeCheck
   #< This checks for flags
   while getopts 'olnrah' flag; do
     case "${flag}" in
@@ -306,22 +292,27 @@ xcodeCall() {
   #>
 }
 xcodeCheck() {
-  #< Checks to see if xcode is installed
-if [[ ! -d $xcodeDir ]]; then
-  if [[ -z $system_ifAdmin ]]; then
-    printf "xcode directory not defined\n"
-    while true; do
-      read -p "Do you wish to install xcode? [Y/N] " yn
-      case $yn in
-          [Yy]* ) xcodeInstall;;
-          [Nn]* ) exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    done
-  else
+  xcodeCheckVersion
+  if [[ -z $xcodeVersion ]]; then
+    echo "Installing Xcode CommandLineTools"
     xcodeInstall
+    xcodeDir=$(xcode-select -p)
   fi
-fi
+  if [[ ! -d $xcodeDir ]]; then
+    if [[ -n $brew_force ]]; then
+      printf "xcode directory not defined\n"
+      while true; do
+        read -p "Do you wish to install xcode? [Y/N] " yn
+        case $yn in
+            [Yy]* ) xcodeInstall;;
+            [Nn]* ) exit;;
+            * ) echo "Please answer yes or no.";;
+        esac
+      done
+    else
+      xcodeInstall
+    fi
+  fi
 #>
 }
 xcodeCheckVersion() {
@@ -533,6 +524,7 @@ brew_force() {
     if [ "$EUID" -ne 0 ];then
       err "Error: brew_force mode must run as root"
     fi
+    brew_force="1"
     warning
     noSudo
   fi
@@ -1129,10 +1121,13 @@ flags() {
 if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
+    brew_force="1"
     echo "Installing brass to /usr/local/bin/brass"
     brass_update
     chmod +x /usr/local/bin/brass
     say "done.\n\n"
+  else
+    check -q
   fi
   #>
   printf "use brass -h for more infomation.\n"
