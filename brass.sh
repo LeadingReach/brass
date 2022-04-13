@@ -56,7 +56,9 @@ check() {
       v) system_verbose yes;;
       X) xcodeCall "$@";;
       x) xcode_update yes;;
-      s) user="$OPTARG"; brewUser;;
+      s) if [[ -z $user ]]; then
+        user="$OPTARG"
+        fi; brewUser;;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
@@ -67,7 +69,7 @@ check() {
       f) package_force yes;;
       n) noWarnning="1";;
       l) brew_force yes;;
-      a) ifAdmin="1";;
+      a) system_ifAdmin yes;;
       w) dialog=$(echo "$@" | awk -F "-w" '{print $2}' | awk -F"-" '{print $1}'); set=$(echo "$@" | awk -F"$dialog" '{print $2}'); notifyFlag;;
       b) brass_debug;;
       q) brass_update yes;;
@@ -78,7 +80,7 @@ check() {
   done
   if [ $OPTIND -eq 1 ]; then brewUser; brewDo "$@"; fi
   #< This makes sure any sudo modificatoins are reversed
-  if [[ ! -z $brew_force ]] || [[ ! -z $ifAdmin ]]; then
+  if [[ ! -z $brew_force ]] || [[ ! -z $system_ifAdmin ]]; then
     forcePass
   fi
   #>
@@ -149,8 +151,7 @@ run_config () {
   if [[ $file == "yes" ]]; then
     cfg="$(parse_yaml $cfg)"
   else
-    printf "Input from command\n"
-    echo "$cfg"
+    cfg=$(echo "$cfg" | awk -F"\-C\ " '{print $2}' | tr ' ' '\n')
   fi
   while IFS= read -r line; do
     run=$(echo $line | awk -F'=' '{print $1}')
@@ -222,7 +223,7 @@ notify_timeout() {
   fi
 }
 notify_allowCancel() {
-  notify_buttons="\"Ok\", \"Cancel\""
+  notify_buttons="\"okay\", \"cancel\""
 }
 notify_display() {
   notify_run
@@ -235,8 +236,11 @@ notify_run() {
     end tell
     return myAnswer
     EOF)
-    echo $notify_input
+    say "User user input: $notify_input\n"
     unset dialog
+    if [[ $notify_input == "cancel" ]]; then
+      exit
+    fi
 }
 
 #>
@@ -304,7 +308,7 @@ xcodeCall() {
 xcodeCheck() {
   #< Checks to see if xcode is installed
 if [[ ! -d $xcodeDir ]]; then
-  if [[ -z $ifAdmin ]]; then
+  if [[ -z $system_ifAdmin ]]; then
     printf "xcode directory not defined\n"
     while true; do
       read -p "Do you wish to install xcode? [Y/N] " yn
@@ -429,8 +433,8 @@ brewUser() {
       say "System Mode Enabled: Brew binary is located at $brewBinary\n"
     fi
     brewCheck
-    if [[ ! -z $ifAdmin ]]; then
-      ifAdmin
+    if [[ ! -z $system_ifAdmin ]]; then
+      system_ifAdmin
     fi
   fi
   brewUser="1"
