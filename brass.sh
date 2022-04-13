@@ -146,13 +146,11 @@ warning() {
   fi
 }
 run_config () {
-  if [[ $file != "yes" ]]; then
-    echo cmd
-    cfg="$(echo $cfg | tr ' ' '\n' | sed 1d)"
-    echo "$cfg"
-  else
-    echo file
+  if [[ $file == "yes" ]]; then
     cfg="$(parse_yaml $cfg)"
+  else
+    printf "Input from command\n"
+    echo "$cfg"
   fi
   while IFS= read -r line; do
     run=$(echo $line | awk -F'=' '{print $1}')
@@ -184,25 +182,11 @@ parse_yaml() {
 #>
 #>
 #< Notify Functions
-notify_timeout() {
-  if [[ -z "$@" ]]; then
-    notify_timeout=10
-  else
-    notify_timeout="$@"
-  fi
-}
 notify_title(){
   if [[ -z "$@" ]]; then
     notify_title=brass
   else
-    notify_title="$@"
-  fi
-}
-notify_iconPath() {
-  if [[ -z "$@" ]]; then
-    unset notify_iconPath
-  else
-    notify_iconPath=$(echo "$@" | tr -d '"')
+    notify_title=$(echo "$@" | tr -d '"')
   fi
 }
 notify_iconLink() {
@@ -210,6 +194,15 @@ notify_iconLink() {
     unset notify_iconLink
   else
     notify_iconLink=$(echo "$@" | tr -d '"')
+    #curl "$notify_iconLink" --output "$notify_iconPath"
+  fi
+}
+notify_iconPath() {
+  if [[ -z "$@" ]]; then
+    notify_icon="caution"
+  else
+    notify_iconPath=$(echo "$@" | tr -d '"')
+    notify_icon="POSIX file (\"$notify_iconPath\" as string)"
   fi
 }
 notify_dialog() {
@@ -218,19 +211,34 @@ notify_dialog() {
     echo "$@"
     err "Dialog must be specified"
   else
-    notify_dialog="$@"
+    notify_dialog=$(echo "$@" | tr -d '"')
   fi
-  if [[ -n $notify_iconLink ]]; then
-    curl "$notify_iconLink" --output "$notify_iconPath"
-  fi
-  if [[ ! -z $notify_iconPath ]]; then
-    applescriptCode="display dialog $notify_dialog buttons {\"Okay\"} giving up after $notify_timeout with title $notify_title with icon POSIX file (\"$notify_iconPath\" as string)"
-  else
-    applescriptCode="display dialog $notify_dialog buttons {\"Okay\"} giving up after $notify_timeout with title $notify_title"
-  fi
-  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
-  unset dialog
 }
+notify_timeout() {
+  if [[ -z "$@" ]]; then
+    notify_timeout=10
+  else
+    notify_timeout=$(echo "$@" | tr -d '"')
+  fi
+}
+notify_allowCancel() {
+  notify_buttons="\"Ok\", \"Cancel\""
+}
+notify_display() {
+  notify_run
+}
+notify_run() {
+  notify_input=$(/usr/bin/osascript<<-EOF
+    tell application "System Events"
+    activate
+    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon $notify_icon)
+    end tell
+    return myAnswer
+    EOF)
+    echo $notify_input
+    unset dialog
+}
+
 #>
 #< System Functions
 system_runMode() {
