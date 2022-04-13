@@ -50,8 +50,8 @@ check() {
   #< This checks for flags
   while getopts 'c:C:ZvXxs:iruzp:d:tfnlaw:bqhf' flag; do
     case "${flag}" in
-      c) cfg="$OPTARG"; file="yes"; config; exit;;
-      C) cfg="$@"; config; exit;;
+      c) cfg="$OPTARG"; file="yes"; run_config; exit;;
+      C) cfg="$@"; run_config; exit;;
       Z) system_runMode system;;
       v) system_verbose yes;;
       X) xcodeCall "$@";;
@@ -145,7 +145,15 @@ warning() {
     sleep 1
   fi
 }
-config () {
+run_config () {
+  if [[ $file != "yes" ]]; then
+    echo cmd
+    cfg="$(echo $cfg | tr ' ' '\n' | sed 1d)"
+    echo "$cfg"
+  else
+    echo file
+    cfg="$(parse_yaml $cfg)"
+  fi
   while IFS= read -r line; do
     run=$(echo $line | awk -F'=' '{print $1}')
     if [[ $run == notify* ]]; then
@@ -154,7 +162,7 @@ config () {
       str=$(echo $line | awk -F'=' '{print $2}' | tr -d '"')
     fi
     $run $str
-  done < <(parse_yaml $cfg)
+  done < <(echo "$cfg")
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
