@@ -1,18 +1,17 @@
-## global definitions
 system:
   runMode: local
   verbose: yes
-  user: username
+  user: admin
   ifAdmin: yes
+  force: yes
 
 xcode:
   update: no
 
 notify:
-  title: Spooky
-  iconPath: "/Users/username/icon2.png"
-  iconLink: "https://www.seekpng.com/png/detail/107-1074366_desktop-icon-desktop-icon-png-white.png"
-  dialog: Want to continue?
+  title: A Title
+  iconPath: "/Library/Application Support/JAMF/Jamf.app/Contents/Resources/AppIcon.icns"
+  dialog: Reinstalling this app. This may take some time. Want to continue?
   timeout: 10
   allowCancel: yes
   display: yes
@@ -21,23 +20,23 @@ brew:
   install: no
   uninstall: no
   reset: no
-  update: no
-  force: no
+  update: yes
 
 package:
+  install: no
   delete: no
-  reset: no
+  killProcess: thisapp
+  reset: thisapp
   force: no
 
 brass:
   update: no
-  debug: no
+  debug: yes
 
 notify:
-  title: Boo
-  iconPath: "/Users/username/icon2.png"
-  iconLink: "https://www.seekpng.com/png/detail/107-1074366_desktop-icon-desktop-icon-png-white.png"
-  dialog: I am alive
+  title: Another Title
+  iconPath: "/Library/Application Support/JAMF/Jamf.app/Contents/Resources/AppIcon.icns"
+  dialog: App install complete.
   timeout: 10
-  allowCancel: yes
+  allowCancel: no
   display: yes

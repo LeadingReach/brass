@@ -254,6 +254,19 @@ This script requires sudo access for many of its functions. This script may modi
       # This will run brew as admin user and then reinstall package sl
       user@mac$ sudo brass -s admin -utp sl
 
+  -f: Force installs a brew package
+
+      # This will force install the brew package sl
+      admin@mac$ brass -f sl
+
+
+      # This will update brew and then force install the package sl
+      admin@mac$ brass -uf sl
+
+
+      # This will run brew as admin user and then force install package sl
+      user@mac$ sudo brass -s admin -uf sl
+
 
   -i: Installs brew
 
@@ -343,21 +356,27 @@ This script requires sudo access for many of its functions. This script may modi
 
 ### -c/-C: brass yaml configuration
 brass has the ability to to configured by a yaml config file.
-The yaml configuration is seperated into seven categories.
+The yaml configuration is separated into seven categories.
 ```bash
-    admin@mac\$ brass -c "/path/to/configfile.yaml"
+    admin@mac$ brass -c "/path/to/configfile.yaml"
 ```
 You can pass through yaml variables straight into brass
 ```bash
-    admin@mac\$ brass -C system_runMode="local" xcode_update="yes" notify_dialog="are you sure you would like to install sl?" notify_allowCancel="yes" notify_display="yes" package_name="sl"
-
+    admin@mac$ brass -C system_runMode="local" xcode_update="yes" notify_dialog="are you sure you would like to install sl?" notify_allowCancel="yes" notify_display="yes" package_name="sl"
+```
+You can use a url with -u
+```bash
+    admin@mac$ brass -u https://raw.githubusercontent.com/bullshit/project/master/config.yaml
+```
     brassconf.yaml example:         # you can name this what ever you would like
+```bash
 
     system:                         # to configure system Variables.
       runMode: local | system       # local runs brew un a user specific prefix, system runs brew in the default system prefix.
       verbose: yes | blank/no       # runs brass in verbose mode.
       user: username                # specifies which user should run brass.
       ifAdmin: yes | blank/no       # if the console user is an admin, it will ignore the specifed user and run as the console user.
+      force: yes | blank/no         # will push through script configuration with no interaction.
 
     xcode:                          # to configure xcode
       update: yes | blank/no        # will install/update xcode CommandLineTools
@@ -367,11 +386,11 @@ You can pass through yaml variables straight into brass
       uninstall: yes | blank/no     # will uninstall brew if it is present.
       reset: yes | blank/no         # will reset brew if it is present.
       update: yes | blank/no        # will update brew.
-      force: yes | blank/no         # will push through brew configuration with no interaction.
 
     package:                        # to configure the brew package
-      name: package | blank/no      # the package you would like to configure. will install the package if not found unless you use the delete funtion.
+      install: package | blank/no   # the package you would like to configure. will install the package if not found unless you use the delete function.
       delete: package | blank/no    # will delete package if present.
+      killProcess: process | blank  # this will kill a process with pkill -9
       reset: yes | blank/no         # will reinstall the package
       force: yes | blank/no         # will force install the package
 
