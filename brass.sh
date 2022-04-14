@@ -723,7 +723,7 @@ brass_update() {
     if [[ -z $brassDif ]]; then
       printf "brass is up to date.\n"
     else
-      if [[ -z $brew_force ]]; then
+      if [[ -z $brew_force ]] || [[ -z $quiet_force ]]; then
         read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
         case $yn in
             [Yy]* ) brass_update;;
@@ -738,14 +738,14 @@ brass_update() {
         fi
       fi
     fi
-    if [[ ! -z "${UPGRADE-}" ]]; then
+    if [[ ! -z $quiet_force ]]; then
       brass_update
     fi
   fi
 }
 brass_update() {
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
-  printf "upgrade complete.\n"
+  say "upgrade complete.\n"
 }
 help () {
   echo "
@@ -1168,14 +1168,16 @@ yaml() {
 #>
 #< logic
 if [[ -z $@ ]]; then
+  quiet_force="1"
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
-    brew_force="1"
+    quiet_force="1"
     echo "Installing brass to /usr/local/bin/brass"
     brass_update
     chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
+    quiet_force="1"
     check -q
   fi
   #>
