@@ -13,12 +13,15 @@ fi)
 userEnv(){
   brewPath="/Users/$user/.homebrew"
   brewBin="/Users/$user/.homebrew/bin/"
-  brewBinary="/Users/$user/.homebrew/bin/brew"
   brewUser=$(ls -al $brewPath | awk '{ print $3; }')
   brewCellar="/Users/$user/.homebrew/Cellar"
   brewCaskroom="/Users/$user/.homebrew/Caskroom"
   xcodeDir=$(xcode-select -p)
-  export PATH="$brewBin:$PATH"
+  if [[ -f "/Users/$user/.homebrew/bin/brew" ]]; then
+    brewBinary="/Users/$user/.homebrew/bin/brew"
+  else
+    unset brewBinary
+  fi
   if [[ -z $(cat /Users/$user/.zprofile | grep $brewBin) ]]; then
     export PATH="$brewBin:$PATH"
     echo "Adding $brewBin to PATH"
@@ -263,8 +266,6 @@ system_verbose() {
     unset $system_verbose
   fi
 }
-#>
-#< User Functions
 system_user() {
   if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
     user="$@"
@@ -272,6 +273,7 @@ system_user() {
   fi
 }
 system_ifAdmin() {
+  system_ifAdmin="1"
   if [[ "$@" == "yes" ]]; then
     if [[ $userClass == "admin" ]]; then
       say "Brew admin enabled: $consoleUser is an admin user. Running brew as $consoleUser\n"
@@ -312,7 +314,6 @@ xcodeCheck() {
       xcodeInstall
     fi
   fi
-#>
 }
 xcodeCheckVersion() {
 #< Checks for the currently installed version of xcode
@@ -396,6 +397,15 @@ xcodeHelp() {
 }
 #>
 #< Brew Functions
+brew_env() {
+  if [[ -z $system_runMode ]]; then
+    userEnv
+    say "User Mode Enabled: Brew binary is located at $brewBinary\n"
+  else
+    sysEnv
+    say "System Mode Enabled: Brew binary is located at $brewBinary\n"
+  fi
+}
 brewUser() {
   if [[ -z $brewUser ]]; then
     # Checks to see who should run brew
@@ -414,33 +424,32 @@ brewUser() {
     if [[ $user != $consoleUser ]] && [ "$EUID" -ne 0 ] ;then
       err "Running brew as another user requires sudo priviledges"
     fi
-    # Use proper env varables
-    if [[ -z $system_runMode ]]; then
-      userEnv
-      say "User Mode Enabled: Brew binary is located at $brewBinary\n"
-    else
-      sysEnv
-      say "System Mode Enabled: Brew binary is located at $brewBinary\n"
-    fi
-    brewCheck
     if [[ ! -z $system_ifAdmin ]]; then
-      system_ifAdmin
+      system_ifAdmin yes
     fi
+    # Use proper env varables
+    brew_env
+    brewCheck
   fi
   brewUser="1"
 }
 brewCheck() {
   #< Checks to see if brew is installed
   if [[ -z $brewBinary ]]; then
+    if [[ -z $brew_force ]]; then
+      while true; do
+        read -p "Do you wish to install brew? [Y/N] " yn
+        case $yn in
+            [Yy]* ) brew_install; break;;
+            [Nn]* ) exit;;
+            * ) echo "Please answer yes or no.";;
+        esac
+      done
+    else
+      brew_install yes
+      brew_env
+    fi
     printf "brew directory not defined\n"
-    while true; do
-      read -p "Do you wish to install brew? [Y/N] " yn
-      case $yn in
-          [Yy]* ) brew_install; break;;
-          [Nn]* ) exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    done
   fi
   #>
   #< Checks to see if brew is owned by the correct user
@@ -473,7 +482,9 @@ brewDo() {
 }
 brew_install() {
   if [[ "$@" == "yes" ]]; then
-    brewUser
+    if [[ -z $user ]]; then
+      brewUser
+    fi
     if [[ -f $brewBinary ]]; then
       say "brew is installed as $user\n"
     else
@@ -490,7 +501,7 @@ brew_install() {
 }
 brew_uninstall() {
   brewUser
-  if [[ "$@" == "system" ]]; then
+  if [[ "$@" == "yes" ]]; then
     if [[ -d $brewPath ]]; then
       if [[ -z $system_runMode ]]; then
         say "removing $brewPath\n"
