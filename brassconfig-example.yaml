@@ -1,0 +1,43 @@
+## global definitions
+system:
+  runMode: local
+  verbose: yes
+  user: username
+  ifAdmin: yes
+
+xcode:
+  update: no
+
+notify:
+  title: Spooky
+  iconPath: "/Users/username/icon2.png"
+  iconLink: "https://www.seekpng.com/png/detail/107-1074366_desktop-icon-desktop-icon-png-white.png"
+  dialog: Want to continue?
+  timeout: 10
+  allowCancel: yes
+  display: yes
+
+brew:
+  install: no
+  uninstall: no
+  reset: no
+  update: no
+  force: no
+
+package:
+  delete: no
+  reset: no
+  force: no
+
+brass:
+  update: no
+  debug: no
+
+notify:
+  title: Boo
+  iconPath: "/Users/username/icon2.png"
+  iconLink: "https://www.seekpng.com/png/detail/107-1074366_desktop-icon-desktop-icon-png-white.png"
+  dialog: I am alive
+  timeout: 10
+  allowCancel: yes
+  display: yes

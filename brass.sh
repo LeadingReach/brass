@@ -45,9 +45,13 @@ sysEnv() {
 #>
 #< Script Functions
 check() {
-  xcodeCheck
+  if [[ ! -d "/Library/Developer/CommandLineTools" ]]; then
+    echo "Installing Xcode CommandLineTools"
+    xcodeInstall
+    xcodeDir=$(xcode-select -p)
+  fi
   #< This checks for flags
-  while getopts 'c:C:ZvXxs:iruzp:d:tfnlaw:bqhf' flag; do
+  while getopts 'c:C:ZvXxs:iruzp:d:tfnlaw:bqhfy' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
@@ -73,6 +77,7 @@ check() {
       b) brass_debug;;
       q) brass_update yes;;
       f) flags;;
+      y) yaml;;
       h) help;;
       *) help;;
     esac
@@ -292,12 +297,6 @@ xcodeCall() {
   #>
 }
 xcodeCheck() {
-  xcodeCheckVersion
-  if [[ -z $xcodeVersion ]]; then
-    echo "Installing Xcode CommandLineTools"
-    xcodeInstall
-    xcodeDir=$(xcode-select -p)
-  fi
   if [[ ! -d $xcodeDir ]]; then
     if [[ -n $brew_force ]]; then
       printf "xcode directory not defined\n"
@@ -919,13 +918,13 @@ flags() {
 #        User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
 #
 #
-#  -n: Disables brew_force warnning.
+#  -n: Disables force through warnning.
 #
 #      # This will run without any warnings
 #      admin@mac\$ sudo brass -na admin -u
 #
 #
-#  -l: NONINTERACTIVE mode
+#  -l: NONINTERACTIVE force through mode
 #
 #      # This will run reguardless of brew owner
 #      admin@mac\$ sudo brass -nls otheradmin
@@ -1075,6 +1074,8 @@ flags() {
 #
 #  -f: Shows brass flags
 #
+#  -y: Shows brass yaml configuration
+#
 #
 #  ###  -X: Xcode management utility.
 #
@@ -1115,6 +1116,54 @@ flags() {
 #        # This will show the help information for Xcode management utility
 #        user@mac\$ brass -Xh
   "
+}
+yaml() {
+  echo "
+#  brass has the ability to to configured by a yaml config file.
+#  The yaml configuration is seperated into seven categories.
+#    admin@mac\$ brass -c \"/path/to/configfile.yaml\"
+#
+#  You can pass through yaml variables straight into brass
+    admin@mac\$ brass -C system_runMode=\"local\" xcode_update=\"yes\" notify_dialog=\"are you sure you would like to install sl?\" notify_allowCancel=\"yes\" notify_display=\"yes\" #package_name=\"sl\"
+#
+#    brassconf.yaml example:         # you can name this what ever you would like
+#
+#    system:                         # to configure system Variables.
+#      runMode: local | system       # local runs brew un a user specific prefix, system runs brew in the default system prefix.
+#      verbose: yes | blank/no       # runs brass in verbose mode.
+#      user: username                # specifies which user should run brass.
+#      ifAdmin: yes | blank/no       # if the console user is an admin, it will ignore the specifed user and run as the console user.
+#
+#    xcode:                          # to configure xcode
+#      update: yes | blank/no        # will install/update xcode CommandLineTools
+#
+#    brew:                           # to configure brew variable
+#      install: yes | blank/no       # will install brew if it is not present.
+#      uninstall: yes | blank/no     # will uninstall brew if it is present.
+#      reset: yes | blank/no         # will reset brew if it is present.
+#      update: yes | blank/no        # will update brew.
+#      force: yes | blank/no         # will push through brew configuration with no interaction.
+#
+#    package:                        # to configure the brew package
+#      name: package | blank/no      # the package you would like to configure. will install the package if not found unless you use the delete funtion.
+#      delete: package | blank/no    # will delete package if present.
+#      reset: yes | blank/no         # will reinstall the package
+#      force: yes | blank/no         # will force install the package
+#
+#    brass:                          # to configure brass settings
+#      update: yes | blank/no        # update brass
+#      debug: ye | blank/no          # show brass debug information
+#
+#    notify:                         # shows applescript notification. This can be set anywhere in the configuation file as many times as needed.
+#      title: Title | blank=brass    # title of the notification
+#      iconPath: /path/icon | blank  # path to icon shown in notification. Leave blank if not needed. Spaces unsupported.
+#      iconLink: \"icon.url/icon.png\" # this will download the icon to the specified path. Leave blank if not needed.
+#      dialog: Hello world           # Dialog to be displaed in the notification.
+#      timeout: 10 | blank=10        # how long the notification will stay up until the script contines.
+#      allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
+#      display: yes | blank/no       # enables/disables the notification
+    "
+
 }
 #>
 #< logic
