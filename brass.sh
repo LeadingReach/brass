@@ -89,7 +89,7 @@ sudo_check() {
   fi
 }
 sudo_reset() {
-  if [[ ! -z $system_force ]] || [[ ! -z $system_ifAdmin ]]; then
+  if [[ -n $system_force ]] || [[ -n $system_ifAdmin ]]; then
     say "removing brass sudoers entries\n"
     sed -i '' '/#brass/d' /etc/sudoers
   fi
@@ -173,7 +173,8 @@ run_config () {
       str=$(echo $line | awk -F'=' '{print $2}' | tr -d '"')
     fi
     $run $str
-  done < <(echo "$cfg")
+  done < <(echo "$cfg")''
+  sudo_reset
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
@@ -288,6 +289,7 @@ system_user() {
 }
 system_ifAdmin() {
   if [[ "$@" == "yes" ]]; then
+    system_ifAdmin="1"
     if [[ $userClass == "admin" ]]; then
       say "Brew admin enabled: $consoleUser is an admin user. Running brew as $consoleUser\n"
       user=$consoleUser
@@ -1160,4 +1162,5 @@ if [[ ! -z "$set" ]]; then
 else
   say "done\n"
 fi
+sudo_reset
 #>
