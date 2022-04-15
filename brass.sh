@@ -113,7 +113,7 @@ userDo() {
 }
 noSudo() {
   system_user
-  dirSudo=("/usr/sbin/chown" "/bin/launchctl" "/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil")
+  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir")
   for str in ${dirSudo[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
       say "Modifying /etc/sudoers to allow $user to run $str as root without a password\n"
