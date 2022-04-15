@@ -113,10 +113,11 @@ userDo() {
 }
 noSudo() {
   system_user
-  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir")
+  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
+  str_binary=$(echo "$dirSudo" | awk -F"/" '{print $(NF)}')
   for str in ${dirSudo[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
-      say "Modifying /etc/sudoers to allow $user to run $str as root without a password\n"
+      say "Modifying /etc/sudoers to allow $user to run $str_binary binary as root without a password\n"
       echo "$user         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
     else
       say "etc/sudoers already allows $user to run $str as root without a password\n"
@@ -534,47 +535,7 @@ brewOwnDirs() {
     fi
   done
 }
-brass_debug() {
-  if [[ "$@" == "yes" ]]; then
-  # User information
-  	printf "\nDebug - User information:\n"
-  	printf "\tconsoleUser: $consoleUser\n"
-  	printf "\tuserClass: $consoleUser is $userClass\n"
-  	printf "\tbrew_user: brew will run as $user\n"
-  # Package information
-  	printf "\nDebug - Package Information\n"
-  	if [ -z "$package_name" ]
-  	then
-  		printf "\tNo package defined."
-  	else
-  		printf "\tpackage info: $package_name\n"
-  		brewDo info $package_name | sed 's/^/\t\t/'
-  		if [[ $brewOwnPackage == 1 ]]; then
-  			printf "\nbrewOwnPackage: Enabled.\n"
-  			printf "\tpackage_nameDir=$package_nameDir\n"
-  			printf "\tPermissions:\n$(ls -al $package_nameDir | sed 's/^/\t\t/')\n"
-  			printf "\tpackagePath=$package_namePath\n"
-  			printf "\tPermissions:\n$(ls -al $package_namePath | grep .app | sed 's/^/\t\t/')\n"
-  			printf "\tpackage_nameLink=$package_nameLink\n"
-  			printf "\tPermissions:\n$(ls -al $package_nameLink | sed 's/^/\t\t/')\n"
-  			printf "\tpackageOwner=$package_nameOwner\n"
-  		else
-  			printf "\nbrewOwnPackage: Disabled\n"
-  		fi
-  	fi
-  	# Xcode infomation
-  		printf "\nDebug - Xcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
-  	# Check if brew_reset is enabled
-  # Brew enviroment variables
-  	cd /Users/$user/
-  	printf "\nDebug - enviroment variables:\n"
-  	printf "\tbrew_user=$brew_user\n\tbrewBinary=$brew_binary\n\tbrewDir=$brewDir\n\tbrewCache=$brewCache\n"
-  	brewDo --env | awk -F"export" '{ print $2 }' | sed 's/^/\t\t/'
-  	printf "\nHOMEBREW_CACHE="
-  	brewDo --cache | sed 's/^/\t\t/'
-  	brewDo --cache | sed 's/^/\t\t/'
-  fi
-}
+
 #< Brew System Functions
 brew_sysInstall () {
   if [ -d $brew_binary ]; then
@@ -606,8 +567,12 @@ package_env() {
   packageOwner=$(stat $packageLink | awk '{print $5}')
 else
   packageDir="$brew_path/bin/$package"
+  packageName="$package"
   packageOwner=$(stat $packageDir | awk '{print $5}')
   packageLink=$packageDir
+fi
+if [[ -n $packageLink ]]; then
+  packaged_installed="yes"
 fi
 }
 package_install() {
@@ -621,6 +586,7 @@ package_install() {
     cd /Users/$user/
     package_env
     brewDo install $package
+    package_env
   fi
 }
 package_delete() {
@@ -705,6 +671,47 @@ brass_update() {
 brass_upgrade() {
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
   say "upgrade complete.\n"
+}
+brass_debug() {
+  if [[ "$@" == "yes" ]]; then
+  # User information
+  	printf "\nDebug - User information:\n"
+  	printf "\tconsoleUser: $consoleUser\n"
+  	printf "\tuserClass: $consoleUser is $userClass\n"
+  	printf "\tbrew_user: brew will run as $user\n"
+  # Package information
+  	printf "\nDebug - Package Information\n"
+  	if [ -z "$package_name" ]
+  	then
+  		printf "\tNo package defined."
+  	else
+  		printf "\tpackage info: $package_name\n"
+  		brewDo info $package_name | sed 's/^/\t\t/'
+  		if [[ $brewOwnPackage == 1 ]]; then
+  			printf "\nbrewOwnPackage: Enabled.\n"
+  			printf "\tpackage_nameDir=$package_nameDir\n"
+  			printf "\tPermissions:\n$(ls -al $package_nameDir | sed 's/^/\t\t/')\n"
+  			printf "\tpackagePath=$package_namePath\n"
+  			printf "\tPermissions:\n$(ls -al $package_namePath | grep .app | sed 's/^/\t\t/')\n"
+  			printf "\tpackage_nameLink=$package_nameLink\n"
+  			printf "\tPermissions:\n$(ls -al $package_nameLink | sed 's/^/\t\t/')\n"
+  			printf "\tpackageOwner=$package_nameOwner\n"
+  		else
+  			printf "\nbrewOwnPackage: Disabled\n"
+  		fi
+  	fi
+  	# Xcode infomation
+  		printf "\nDebug - Xcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+  	# Check if brew_reset is enabled
+  # Brew enviroment variables
+  	cd /Users/$user/
+  	printf "\nDebug - enviroment variables:\n"
+  	printf "\tbrew_user=$brew_user\n\tbrewBinary=$brew_binary\n\tbrewDir=$brewDir\n\tbrewCache=$brewCache\n"
+  	brewDo --env | awk -F"export" '{ print $2 }' | sed 's/^/\t\t/'
+  	printf "\nHOMEBREW_CACHE="
+  	brewDo --cache | sed 's/^/\t\t/'
+  	brewDo --cache | sed 's/^/\t\t/'
+  fi
 }
 help () {
   echo "
