@@ -1123,7 +1123,7 @@ if [[ -z $@ ]]; then
   if [[ ! -f /usr/local/bin/brass ]]; then
     quiet_force="1"
     echo "Installing brass to /usr/local/bin/brass"
-    brass_update
+    brass_upgrade
     chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
