@@ -675,6 +675,7 @@ brass_update() {
       brass_upgrade
     fi
   fi
+
 }
 brass_ugrade() {
   mkdir -p "/usr/local/bin"
