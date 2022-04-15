@@ -659,7 +659,7 @@ brass_update() {
       if [[ -z $system_force ]] || [[ -z $quiet_force ]]; then
         read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
         case $yn in
-            [Yy]* ) brass_update;;
+            [Yy]* ) brass_upgrade;;
             [Nn]* ) printf "Skipping update\n";;
             * ) echo "Please answer yes or no.";;
         esac
@@ -667,7 +667,7 @@ brass_update() {
         if [[ -z $noWarnning ]]; then
           printf "brass update available. use flag -n to automatically install the latest version of brass\n"
         else
-          brass_update
+          brass_upgrade
         fi
       fi
     fi
@@ -675,12 +675,9 @@ brass_update() {
       brass_upgrade
     fi
   fi
-
 }
 brass_ugrade() {
-  mkdir -p "/usr/local/bin"
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
-  chmod +x /usr/local/bin/brass
   say "upgrade complete.\n"
 }
 help () {
@@ -1120,12 +1117,9 @@ yaml() {
 if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
-    "Installing brass to /usr/local/bin/brass"
-    sudo mkdir -p "/usr/local/bin"
-    sudo touch /usr/local/bin/brass
-    sudo chmod 775 /usr/local/bin/brass
-    sudo curl -s https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
-    sudo chmod +x /usr/local/bin/brass
+    echo "Installing brass to /usr/local/bin/brass"
+    /usr/bin/sudo brass_upgrade
+    /usr/bin/sudo chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
     script_check -q
