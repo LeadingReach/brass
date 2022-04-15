@@ -39,7 +39,6 @@ sys_env() {
 #>
 #< Script Functions
 script_check() {
-  xcode_checkInstalled
   while getopts 'c:u:C:ZvXxs:iruzp:d:t:f:nlaw:bqhyg' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
@@ -280,7 +279,7 @@ system_ifAdmin() {
 #>
 #< Xcode Funtions
 xcodeCall() {
-  xcodeCheck
+  xcode_checkInstalled
   #< This checks for flags
   while getopts 'olnrah' flag; do
     case "${flag}" in
@@ -302,8 +301,11 @@ xcode_env() {
 xcode_checkInstalled() {
   xcode_env
   if [[ ! -d "$xcode_path" ]]; then
+    printf "Xcode CommandLineTools directory not defined\n"
     if [[ -z $system_force ]]; then
-      printf "Xcode CommandLineTools directory not defined\n"
+      if [[ $EUID -ne 0 ]]; then
+         xcode_install
+      fi
       while true; do
         read -p "Would you like to install Xcode CommandLineTools? [Y/N] " yn
         case $yn in
@@ -328,8 +330,7 @@ xcode_versionLatest(){
   /usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1
 }
 xcode_install () {
-  xcode_versionLatest
-  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$xcode_versionLatest
+  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$(xcode_versionLatest)
   printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
 }
 xcode_remove () {
@@ -656,7 +657,7 @@ brass_update() {
     if [[ -z $brassDif ]]; then
       printf "brass is up to date.\n"
     else
-      if [[ -z $system_force ]] || [[ -z $quiet_force ]]; then
+      if [[ -z $system_force ]]; then
         read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
         case $yn in
             [Yy]* ) brass_upgrade;;
@@ -664,11 +665,7 @@ brass_update() {
             * ) echo "Please answer yes or no.";;
         esac
       else
-        if [[ -z $noWarnning ]]; then
-          printf "brass update available. use flag -n to automatically install the latest version of brass\n"
-        else
-          brass_upgrade
-        fi
+        brass_upgrade
       fi
     fi
     if [[ ! -z $quiet_force ]]; then
@@ -1115,6 +1112,7 @@ yaml() {
 #>
 #< logic
 if [[ -z $@ ]]; then
+  system_force="1"
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
     echo "Installing brass to /usr/local/bin/brass"
@@ -1123,13 +1121,13 @@ if [[ -z $@ ]]; then
     chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
+    xcode_checkInstalled
     script_check -q
   fi
   #>
   printf "use brass -h for more infomation.\n"
   exit
 fi
-xcode_checkInstalled
 script_check $@
 OPTIND=1
 if [[ ! -z "$set" ]]; then
