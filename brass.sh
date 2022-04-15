@@ -1118,8 +1118,8 @@ if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
     echo "Installing brass to /usr/local/bin/brass"
-    /usr/bin/sudo brass_upgrade
-    /usr/bin/sudo chmod +x /usr/local/bin/brass
+    brass_upgrade
+    chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
     script_check -q

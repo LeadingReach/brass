@@ -9,7 +9,7 @@ This script requires sudo access for many of its functions. This script may modi
 ## Installation
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
 ```
 
 ## Usage
@@ -369,6 +369,7 @@ You can use a url with -u
     admin@mac$ brass -u https://raw.githubusercontent.com/bullshit/project/master/config.yaml
 ```
     brassconf.yaml example:         # you can name this what ever you would like
+    
 ```bash
 
     system:                         # to configure system Variables.
