@@ -258,17 +258,6 @@ notify_timeout() {
 notify_allowCancel() {
   notify_buttons="\"okay\", \"cancel\""
 }
-notify_displayWIP() {
-  if [[ "$@" == "yes" ]]; then
-    if [[ $notify_ifInstalled == "yes" ]]; then
-      notify_run
-    elif [[ $notify_ifInstalled == "no"]]; then
-      say "package is not installed"
-    elif [[ -z $notify_ifInstalled ]]; then
-      notify_run
-    fi
-  fi
-}
 notify_display() {
   if [[ "$@" == "yes" ]]; then
     notify_run
