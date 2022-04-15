@@ -678,9 +678,11 @@ brass_update() {
 }
 brass_ugrade() {
   if [[ ! -d "/usr/local/bin"  ]]; then
-    mkdir -p /usr/local/bin
+    sudo_check "to install brass"
+    mkdir -p "/usr/local/bin"
   fi
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
+  chmod +x /usr/local/bin/brass
   say "upgrade complete.\n"
 }
 help () {
@@ -1118,20 +1120,11 @@ yaml() {
 #>
 #< logic
 if [[ -z $@ ]]; then
-  quiet_force="1"
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
-    quiet_force="1"
     echo "Installing brass to /usr/local/bin/brass"
-    if [[ ! -d "/usr/local/bin"  ]]; then
-      mkdir -p "/usr/local/bin"
-    fi
-    curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
-    say "upgrade complete.\n"
-    chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
-    quiet_force="1"
     script_check -q
   fi
   #>
