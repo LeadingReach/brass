@@ -39,10 +39,11 @@ sys_env() {
 #>
 #< Script Functions
 script_check() {
-  while getopts 'c:u:C:ZvXxs:iruzp:d:t:f:nlaw:bqhyg' flag; do
+  while getopts 'c:g:j:C:ZvXxs:iruzp:d:t:f:nlaw:bqhyg' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
-      u) cfg="$OPTARG"; url="yes"; run_config; exit;;
+      j) token="$OPTARG";;
+      g) cfg="$OPTARG"; url="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
       Z) system_runMode system;;
       v) system_verbose yes;;
@@ -156,7 +157,11 @@ run_config () {
   if [[ $file == "yes" ]]; then
     cfg="$(parse_yaml $cfg)"
   elif [[ $url == "yes" ]]; then
-    cfg="$(parse_yaml <(curl -s $cfg))"
+      if [[ -n $token ]]; then
+        cfg="$(parse_yaml <(curl -H "Authorization: token $token" $cfg))"
+      else
+        cfg="$(parse_yaml <(curl -s $cfg))"
+      fi
   else
     cfg=$(echo "$cfg" | awk -F"\-C\ " '{print $2}' | tr ' ' '\n')
   fi

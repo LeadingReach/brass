@@ -356,20 +356,22 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
 
 ### -c/-C: brass yaml configuration
 brass has the ability to to configured by a yaml config file.
-The yaml configuration is separated into seven categories.
+Use -c to point brass towards your yaml file
+Or use -C to pass through yaml variables straight into brass
 ```bash
     admin@mac$ brass -c "/path/to/configfile.yaml"
-```
-You can pass through yaml variables straight into brass
-```bash
+
     admin@mac$ brass -C system_runMode="local" xcode_update="yes" notify_dialog="are you sure you would like to install sl?" notify_allowCancel="yes" notify_display="yes" package_name="sl"
 ```
-You can use a url with -u
+You can use a url with -g
+And pass through an authorization token with -j
 ```bash
-    admin@mac$ brass -u https://raw.githubusercontent.com/bullshit/project/master/config.yaml
+    admin@mac$ brass -g https://raw.githubusercontent.com/bullshit/project/master/config.yaml
+
+    admin@mac$ brass -j ghp_OWYNuN2JVYzP0Wd1quyUhU5vsoQRlMM3oCPuX -g https://raw.githubusercontent.com/bullshit/project/master/config.yaml
 ```
-    brassconf.yaml example:         # you can name this what ever you would like
-    
+The yaml configuration is separated into seven categories.
+brassconf.yaml example:    
 ```bash
 
     system:                         # to configure system Variables.
