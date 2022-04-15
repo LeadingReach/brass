@@ -54,7 +54,7 @@ script_check() {
       r) brew_uninstall yes;;
       u) brew_update yes;;
       z) brew_reset yes;;
-      p) package="$OPTARG"; package_name $package;;
+      p) package="$OPTARG"; package_install $package;;
       d) package="$OPTARG"; package_delete $package;;
       t) package="$OPTARG"; package_reset $package;;
       f) package="$OPTARG"; package_force $package;;
@@ -203,6 +203,19 @@ system_force() {
 }
 #>
 #< Notify Functions
+notify_ifInstalled() {
+  if [[ -z "$@" ]]; then
+    unset notify_ifInstalled
+  elif [[ "$@" == "no" ]]; then
+    notify_ifInstalled="no"
+  elif [ "$@" == "yes" ]]; then
+    if [[ -n $packaged_installed ]]; then
+      notify_ifInstalled="yes"
+    else
+      unset notify_ifInstalled
+    fi
+  fi
+}
 notify_title(){
   if [[ -z "$@" ]]; then
     notify_title=brass
@@ -245,8 +258,21 @@ notify_timeout() {
 notify_allowCancel() {
   notify_buttons="\"okay\", \"cancel\""
 }
+notify_displayWIP() {
+  if [[ "$@" == "yes" ]]; then
+    if [[ $notify_ifInstalled == "yes" ]]; then
+      notify_run
+    elif [[ $notify_ifInstalled == "no"]]; then
+      say "package is not installed"
+    elif [[ -z $notify_ifInstalled ]]; then
+      notify_run
+    fi
+  fi
+}
 notify_display() {
-  notify_run
+  if [[ "$@" == "yes" ]]; then
+    notify_run
+  fi
 }
 notify_run() {
   notify_input=$(/usr/bin/osascript<<-EOF
