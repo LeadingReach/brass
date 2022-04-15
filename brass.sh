@@ -672,11 +672,14 @@ brass_update() {
       fi
     fi
     if [[ ! -z $quiet_force ]]; then
-      brass_update
+      brass_upgrade
     fi
   fi
 }
-brass_update() {
+brass_ugrade() {
+  if [[ ! -d "/usr/local/bin"  ]]; then
+    mkdir -p /usr/local/bin
+  fi
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
   say "upgrade complete.\n"
 }
