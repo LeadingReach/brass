@@ -122,6 +122,18 @@ noSudo() {
     fi
   done
 }
+countdown() {
+  sp="9876543210"
+  secs=$(perl -e 'print time(), "\n"')
+  ((targetsecs=secs+10))
+  while ((secs < targetsecs))
+  do
+    printf "\b${sp:i++%${#sp}:1}"
+    sleep 1
+    secs=$(perl -e 'print time(), "\n"')
+  done
+  sleep 1
+}
 warning() {
   if [[ -z $noWarnning ]]; then
   	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
@@ -304,7 +316,7 @@ xcode_checkInstalled() {
     printf "Xcode CommandLineTools directory not defined\n"
     if [[ -z $system_force ]]; then
       if [[ $EUID -ne 0 ]]; then
-         xcode_install
+        xcode_install
       fi
       while true; do
         read -p "Would you like to install Xcode CommandLineTools? [Y/N] " yn
@@ -315,7 +327,8 @@ xcode_checkInstalled() {
         esac
       done
     else
-      echo "Installing Xcode CommandLineTools"
+      printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "
+      countdown
       xcode_install
     fi
   fi
@@ -814,7 +827,6 @@ help () {
 #    ######## done #######*#
 #    #######################
   "
-
 }
 flags() {
   echo "
@@ -1107,7 +1119,6 @@ yaml() {
 #      allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
 #      display: yes | blank/no       # enables/disables the notification
     "
-
 }
 #>
 #< logic
