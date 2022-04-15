@@ -1123,7 +1123,11 @@ if [[ -z $@ ]]; then
   if [[ ! -f /usr/local/bin/brass ]]; then
     quiet_force="1"
     echo "Installing brass to /usr/local/bin/brass"
-    brass_upgrade
+    if [[ ! -d "/usr/local/bin"  ]]; then
+      mkdir -p "/usr/local/bin"
+    fi
+    curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
+    say "upgrade complete.\n"
     chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
