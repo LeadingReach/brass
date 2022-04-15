@@ -1121,9 +1121,11 @@ if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
     "Installing brass to /usr/local/bin/brass"
-    mkdir -p "/usr/local/bin"
-    curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
-    chmod +x /usr/local/bin/brass
+    sudo mkdir -p "/usr/local/bin"
+    sudo touch /usr/local/bin/brass
+    sudo chmod 775 /usr/local/bin/brass
+    sudo curl -s https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
+    sudo chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
     script_check -q
