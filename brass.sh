@@ -676,8 +676,8 @@ brass_update() {
     fi
   fi
 }
-brass_ugrade() {
-  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
+brass_upgrade() {
+  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
   say "upgrade complete.\n"
 }
 help () {
