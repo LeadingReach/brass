@@ -676,15 +676,8 @@ brass_update() {
     fi
   fi
 }
-brass_ugrade() {
-  if [ $EUID != 0 ]; then
-    echo "sudo access is required to install brass"
-    sudo "$0" "$@"
-    exit $?
-  fi
-  if [[ ! -d "/usr/local/bin"  ]]; then
-    mkdir -p "/usr/local/bin"
-  fi
+brass_ugrade() {n
+  mkdir -p "/usr/local/bin"
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
   say "upgrade complete.\n"
@@ -1127,7 +1120,9 @@ if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
     echo "Installing brass to /usr/local/bin/brass"
-    brass_upgrade
+    sudo mkdir -p "/usr/local/bin"
+    sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
+    sudo chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
     script_check -q
