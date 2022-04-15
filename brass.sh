@@ -203,19 +203,6 @@ system_force() {
 }
 #>
 #< Notify Functions
-notify_ifInstalled() {
-  if [[ -z "$@" ]]; then
-    unset notify_ifInstalled
-  elif [[ "$@" == "no" ]]; then
-    notify_ifInstalled="no"
-  elif [ "$@" == "yes" ]]; then
-    if [[ -n $packaged_installed ]]; then
-      notify_ifInstalled="yes"
-    else
-      unset notify_ifInstalled
-    fi
-  fi
-}
 notify_title(){
   if [[ -z "$@" ]]; then
     notify_title=brass
