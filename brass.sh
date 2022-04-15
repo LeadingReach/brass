@@ -676,7 +676,7 @@ brass_update() {
     fi
   fi
 }
-brass_ugrade() {n
+brass_ugrade() {
   mkdir -p "/usr/local/bin"
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
@@ -1119,10 +1119,10 @@ yaml() {
 if [[ -z $@ ]]; then
   #< Checks to see if brass is installed
   if [[ ! -f /usr/local/bin/brass ]]; then
-    echo "Installing brass to /usr/local/bin/brass"
-    sudo mkdir -p "/usr/local/bin"
-    sudo curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
-    sudo chmod +x /usr/local/bin/brass
+    "Installing brass to /usr/local/bin/brass"
+    mkdir -p "/usr/local/bin"
+    curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh > "/usr/local/bin/brass"
+    chmod +x /usr/local/bin/brass
     say "done.\n\n"
   else
     script_check -q
