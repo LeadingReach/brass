@@ -188,6 +188,7 @@ parse_yaml() {
    }'
 }
 system_force() {
+  system_force="yes"
   if [[ "$@" == "yes" ]]; then
     sudo_check "to run in noninteractive mode"
     noSudo
@@ -470,6 +471,7 @@ brew_install() {
       say "brew is installed as $user\n"
     else
       if [[ -z $system_runMode ]]; then
+        brew_path="/Users/$user/.homebrew"
         mkdir -p $brew_path
         curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C $brew_path
       else
