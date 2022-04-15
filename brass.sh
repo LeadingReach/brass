@@ -1149,7 +1149,7 @@ if [[ -z $@ ]]; then
     say "done.\n\n"
   else
     xcode_checkInstalled
-    script_check -q
+    brass_upgrade
   fi
   #>
   printf "use brass -h for more infomation.\n"
