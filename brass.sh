@@ -288,6 +288,13 @@ system_ifAdmin() {
     fi
   fi
 }
+system_foce() {
+  if [[ "$@" == "yes" ]]; then
+    system_foce="yes"
+  else
+    unset $system_foce
+  fi
+}
 #>
 #< Xcode Funtions
 xcodeCall() {
