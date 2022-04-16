@@ -140,6 +140,7 @@ countdown() {
     sleep 1
     secs=$(perl -e 'print time(), "\n"')
   done
+  printf "\n"
   sleep 1
 }
 warning() {
@@ -442,7 +443,7 @@ brew_check() {
       while true; do
         read -p "Do you wish to install brew? [Y/N] " yn
         case $yn in
-            [Yy]* ) brew_install yes; brew_env; break;;
+            [Yy]* ) brew_install yes;;
             [Nn]* ) exit;;
             * ) echo "Please answer yes or no.";;
         esac
@@ -553,7 +554,7 @@ brew_sysInstall () {
     printf "\nNo Homebrew installation detectd.\nInstalling Homebrew.\nStarting brew install as $user\n"
     cd /Users/$user/
     brewOwnDirs
-    yes | sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    echo -ne "y\n" | sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     echo "Brew install complete"
   fi
 }
