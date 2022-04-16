@@ -351,13 +351,14 @@ xcode_version() {
 xcode_versionLatest(){
   sudo_check "to check the latest version of xcode"
   xcode_trick
-  xcode_versionLatest=$"/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1"
+  xcode_versionLatest=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
   echo "$xcode_versionLatest"
   xcode_untrick
 }
 xcode_install () {
+  xcode_versionLatest
   xcode_trick
-  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$(xcode_versionLatest)
+  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$xcode_versionLatest
   printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
   xcode_untrick
 }
