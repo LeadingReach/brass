@@ -350,16 +350,26 @@ xcode_version() {
 }
 xcode_versionLatest(){
   sudo_check "to check the latest version of xcode"
-  xcode_trick
-  xcode_versionLatest=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
-  echo "$xcode_versionLatest"
+  #< Tricks apple software update
+  /usr/bin/sudo /usr/bin/touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+  printf "Checking for the latest version of xcode. This may take some time\n"
+  #>
+  #< Sets the variable
+  xcodeLatestVersion=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
+  printf "xcode latest version: $xcodeLatestVersion\n"
+  #>
   xcode_untrick
 }
 xcode_install () {
   xcode_versionLatest
   xcode_trick
-  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$xcode_versionLatest
+  #< Installs the latest version of xcode
+  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$xcodeLatestVersion
+  #>
+  #< Prints xcode package info
   printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+  exit 0
+  #>
   xcode_untrick
 }
 xcode_remove () {
