@@ -91,8 +91,7 @@ sudo_check() {
 
   # Checks to see if script has sudo priviledges
   if [ "$EUID" -ne 0 ];then
-  printf "\nsudo priviledges are reqired $@\n"
-  sudo "$0" "$@"
+  err "\nsudo priviledges are reqired $@\n"
   fi
 }
 sudo_reset() {
