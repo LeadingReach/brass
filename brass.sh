@@ -91,7 +91,7 @@ sudo_check() {
 
   # Checks to see if script has sudo priviledges
   if [ "$EUID" -ne 0 ];then
-  err "\nsudo priviledges are reqired $@\n"
+  err "sudo priviledges are reqired $@"
   fi
 }
 sudo_reset() {
@@ -194,8 +194,8 @@ parse_yaml() {
    }'
 }
 system_force() {
-  system_force="yes"
   if [[ "$@" == "yes" ]]; then
+    system_force="yes"
     sudo_check "to run in noninteractive mode"
     noSudo
   fi
@@ -437,22 +437,11 @@ brew_user() {
   brew_check
 }
 brew_check() {
+  brew_env
   if [[ -z $brew_path ]]; then
-    printf "brew directory not defined\n"
-    if [[ -z $system_force ]]; then
-      while true; do
-        read -p "Do you wish to install brew? [Y/N] " yn
-        case $yn in
-            [Yy]* ) brew_install yes;;
-            [Nn]* ) exit;;
-            * ) echo "Please answer yes or no.";;
-        esac
-      done
-    else
-      system_force yes
-      brew_install yes
-      brew_env
-    fi
+    printf "brew directory not defined\nInstalling brew. Press ctrl+c to cancel. Timeout: "; countdown
+    brew_install yes
+    brew_env
   fi
   #< Checks to see if brew is owned by the correct user
   if [[ $(stat $brew_path | awk '{print $5}') != $user ]] && [[ -d $brew_path ]]; then
@@ -483,6 +472,8 @@ brewDo() {
   fi
 }
 brew_install() {
+  system_user
+  brew_env
   if [[ "$@" == "yes" ]]; then
     system_user
     if [[ -f $brew_binary ]]; then
@@ -501,7 +492,8 @@ brew_install() {
   fi
 }
 brew_uninstall() {
-  brew_user
+  system_user
+  brew_env
   if [[ "$@" == "yes" ]]; then
     if [[ -d $brew_path ]]; then
       if [[ -z $system_runMode ]]; then
@@ -548,7 +540,7 @@ brewOwnDirs() {
 
 #< Brew System Functions
 brew_sysInstall () {
-  if [ -d $brew_binary ]; then
+  if [ -f $brew_binary ]; then
     printf "brew already installed.\n"
   else
     printf "\nNo Homebrew installation detectd.\nInstalling Homebrew.\nStarting brew install as $user\n"
