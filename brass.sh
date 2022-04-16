@@ -83,8 +83,15 @@ err() {
   exit 1
 }
 sudo_check() {
+  # Checks to see if sudo binary is executable
+  if [[ ! -x "/usr/bin/sudo" ]]
+  then
+    err "sudo binary not executable"
+  fi
+
+  # Checks to see if script has sudo priviledges
   if [ "$EUID" -ne 0 ];then
-  err "sudo priviledges are reqired $@\n"
+  err "sudo priviledges are reqired $@"
   exit
   fi
 }
@@ -140,15 +147,7 @@ warning() {
   if [[ -z $noWarnning ]]; then
   	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
     printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
-    sp="9876543210"
-  	secs=$(perl -e 'print time(), "\n"')
-  	((targetsecs=secs+10))
-    while ((secs < targetsecs))
-    do
-      printf "\b${sp:i++%${#sp}:1}"
-  		sleep 1
-  		secs=$(perl -e 'print time(), "\n"')
-    done
+    countdown
     sleep 1
   	printf "\nYou have been warned.\n"
     sleep 1
@@ -323,6 +322,13 @@ xcodeCall() {
   done
   #>
 }
+xcode_trick() {
+  # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
+  /usr/bin/sudo /usr/bin/touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+}
+xcode_untrick() {
+  /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+}
 xcode_env() {
   xcode_path="/Library/Developer/CommandLineTools"; if [[ ! -d "$xcode_path" ]]; then unset xcode_path; else
   xcode_version=$(xcode_version)
@@ -332,37 +338,28 @@ xcode_checkInstalled() {
   xcode_env
   if [[ ! -d "$xcode_path" ]]; then
     printf "Xcode CommandLineTools directory not defined\n"
-    if [[ -z $system_force ]]; then
-      if [[ $EUID -ne 0 ]]; then
-        xcode_install
-      fi
-      while true; do
-        read -p "Would you like to install Xcode CommandLineTools? [Y/N] " yn
-        case $yn in
-            [Yy]* ) xcode_install;;
-            [Nn]* ) echo "Xcode will not install. Exiting."; exit;;
-            * ) echo "Please answer yes or no.";;
-        esac
-      done
-    else
-      printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "
-      countdown
-      xcode_install
-    fi
+    printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "
+    countdown
+    xcode_install
   fi
   xcode_env
 }
 xcode_version() {
-  pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}'
+  xcode_version=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}')
+  echo "$xcode_version"
 }
 xcode_versionLatest(){
   sudo_check "to check the latest version of xcode"
-  /usr/bin/sudo /usr/bin/touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress  # Tricks apple software update
-  /usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1
+  xcode_trick
+  xcode_versionLatest=$"/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1"
+  echo "$xcode_versionLatest"
+  xcode_untrick
 }
 xcode_install () {
+  xcode_trick
   /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$(xcode_versionLatest)
   printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+  xcode_untrick
 }
 xcode_remove () {
   #< Checks to see if xcode directory is present
@@ -393,7 +390,7 @@ xcode_update() {
     #>
     #< Compares the two xcode versions to see if the curently installed version is less than the latest versoin
     if echo $xcodeVersion $xcode_versionLatest | awk '{exit !( $1 < $2)}'; then
-      printf "\nXcode is outdate, updating Xcode version $xcodeVersion to $xcode_versionLatest"
+      printf "\nXcode is outdate, updating Xcode version $(xcodeVersion) to $(xcode_versionLatest)"
       xcode_remove
       xcode_install
     else
