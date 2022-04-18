@@ -75,8 +75,7 @@ countdown() {
 warning() {
   if [[ -z $noWarnning ]]; then
   	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
-    printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "
-    countdown
+    printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "; countdown
     sleep 1
   	printf "\nYou have been warned.\n"
     sleep 1
@@ -204,7 +203,8 @@ system_force() {
   if [[ "${@}" != "yes" ]] || [[ -z "${@}" ]]; then
     SYSTEM_FORCE="false"
   else
-    SYSTEM_FORCE="false"
+    SYSTEM_FORCE="true"
+    sudo_disable
   fi
 }
 system_user() {
@@ -250,13 +250,14 @@ env_xcode() {
   fi
 
   if [[ "${@}" == "check_installed_version" ]] && [[ -n "${XCODE_PREFIX}" ]]; then
-    say "Checking for the installed version of xcode CommandLineTools"
+    say "Checking for the installed version of xcode CommandLineTools\n"
     XCODE_INSTALLED_VERSION=$(xcode_installed_version)
-    say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}"
-  elif [[ "${@}" == "check_latest_version" ]]; then
+    say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}\n"
+  fi
+  if [[ "${@}" == "check_latest_version" ]]; then
     echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
     XCODE_LATEST_VERSION=$(xcode_latest_version)
-    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}"
+    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
   fi
 
   if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
@@ -517,6 +518,9 @@ package_uninstall() {
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
 }
+#>
+
+#< Process Functions
 process_kill() {
   if [[ -z "${PROCESS_KILL}" ]]; then
     PROCESS_KILL="${@}"
@@ -541,7 +545,7 @@ notify_iconLink() {
     unset notify_iconLink
   else
     notify_iconLink=$(echo "$@" | tr -d '"')
-    #curl "$notify_iconLink" --output "$notify_iconPath"
+    curl "$notify_iconLink" --output "$notify_iconPath"
   fi
 }
 notify_iconPath() {
@@ -613,9 +617,6 @@ brass_upgrade() {
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
 }
-#>
-
-
 brass_debug() {
   if [[ "${BREW_STATUS}" == "not installed" ]]; then
     BREW_DEBUG="BREW_STATUS=${BREW_STATUS}"
@@ -657,6 +658,7 @@ brass_debug() {
       ${PACKAGE_DEBUG}
       \n"
 }
+#>
 
 # This allows err funtion to exit script whith in a subshell
 set -E
