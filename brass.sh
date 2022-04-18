@@ -139,9 +139,7 @@ run_config () {
     else
       str=$(echo "${line}" | awk -F'=' '{print $2}' | tr -d '"')
     fi
-    echo "${run}"
-    echo "${str}"
-    exit 77
+    "${run}" "${str}"
   done < <(echo "${cfg}")''
   sudo_reset
 }
@@ -565,8 +563,6 @@ notify_iconPath() {
   else
     notify_iconPath=$(echo "$@" | tr -d '"')
     notify_icon="POSIX file (\"$notify_iconPath\" as string)"
-  fi
-  if [[ -n "${notify_iconLink}" ]]; then
     curl "${notify_iconLink}" --output "${notify_iconPath}"
   fi
 }
@@ -595,12 +591,10 @@ notify_allowCancel() {
   fi
 }
 notify_run() {
-  echo "$notify_icon"
-  sleep 10
   notify_input=$(/usr/bin/osascript<<-EOF
     tell application "System Events"
     activate
-    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon "$notify_icon)"
+    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon $notify_icon)
     end tell
     return myAnswer
     EOF)
