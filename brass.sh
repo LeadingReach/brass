@@ -290,7 +290,7 @@ xcode_check_installed() {
     if [[ ! -d "${XCODE_PREFIX}" ]]; then XCODE_INSTALLED="flase";
       printf "Xcode CommandLineTools directory not defined\n"
       printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
-      xcode_install
+      xcode_install yes
     else XCODE_INSTALLED="yes";
     fi; env_xcode
   fi; XCODE_CHECK_INSTALLED="yes"
@@ -332,8 +332,8 @@ xcode_update() {
     # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
     if echo "${XCODE_INSTALLED_VERSION}" "${XCODE_LATEST_VERSION}" | awk '{exit !( $1 < $2)}'; then
       printf "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
-      xcode_remove
-      xcode_install
+      xcode_remove yes
+      xcode_install yes
     else
       printf "xcode is up to date.\n"
     fi
