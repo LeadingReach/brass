@@ -6,6 +6,12 @@ then
   echo "Bash is required to interpret this script."
   exit 1
 fi
+
+if [[ -n "${CI-}" ]]; then
+  SYSTEM_FORCE="true"
+  echo "NONINTERACTIVE ENABLED"
+fi
+
 #>
 
 #< Script Functions
