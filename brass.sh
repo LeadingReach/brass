@@ -69,6 +69,14 @@ userDo() {
     /usr/bin/sudo -i -u ${SYSTEM_USER} "$@"
   fi
 }
+user_command() {
+  if [[ $consoleUser == ${SYSTEM_USER} ]]; then
+      "$@"
+  else
+    sudo_check "to run as another user"
+    /usr/bin/sudo -i -u ${SYSTEM_USER} ${@}
+  fi
+}
 countdown() {
   sp="9876543210"
   secs=$(perl -e 'print time(), "\n"')
@@ -136,6 +144,8 @@ run_config () {
     run=$(echo "${line}" | awk -F'=' '{print $1}')
     if [[ "${run}" == notify* ]]; then
       str=$(echo "${line}" | awk -F'=' '{print $2}')
+    elif [[ "${run}" == user* ]]; then
+      str=$(echo "${line}" | awk -F'user_command=' '{print $2}' | tr -d '"')
     else
       str=$(echo "${line}" | awk -F'=' '{print $2}' | tr -d '"')
     fi
@@ -465,6 +475,20 @@ brew_update() {
     say "brew_update: Enabled.\nUpdating brew\n"
     brewDo update
   fi
+}
+brew_tap() {
+  if [[ -z "${PACKAGE_INSTALL}" ]]; then
+    BREW_TAP="$@"
+  fi
+  system_user
+  if [[ -z "${BREW_TAP}" ]]; then
+    err "nothing specified"
+  fi
+  brew_check
+  cd /Users/"${SYSTEM_USER}"/
+  env_package
+  brewDo tap "${BREW_TAP}"
+  env_package
 }
 #>
 
