@@ -62,7 +62,7 @@ err() {
   exit 77
 }
 userDo() {
-  if [[ $consoleUser == ${SYSTEM_USER} ]]; then
+  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
       "$@"
   else
     sudo_check "to run as another user"
@@ -70,11 +70,20 @@ userDo() {
   fi
 }
 user_command() {
-  if [[ $consoleUser == ${SYSTEM_USER} ]]; then
-      "$@"
+  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
+      $@
   else
     sudo_check "to run as another user"
-    /usr/bin/sudo -i -u ${SYSTEM_USER} ${@}
+    /usr/bin/sudo -i -u ${SYSTEM_USER} $@
+  fi
+}
+user_brewCommand() {
+  env_brew
+  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
+      $BREW_BIN $@
+  else
+    sudo_check "to run as another user"
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN $@
   fi
 }
 countdown() {
@@ -182,6 +191,7 @@ env_system() {
       BREW_REPO="/opt/homebrew"
       BREW_CELLAR="/opt/homebrew/Cellar"
       BREW_CASKROOM="/opt/homebrew/Caskroom"
+      BREW_BIN="/opt/homebrew/bin"
     fi
   else
     BREW_PREFIX="/usr/local" # changed from BREW_PATH
@@ -191,6 +201,7 @@ env_system() {
       BREW_REPO="/usr/local/Homebrew"
       BREW_CELLAR="/usr/local/Cellar"
       BREW_CASKROOM="/usr/local/Caskroom"
+      BREW_BIN="/usr/local/bin"
     fi
   fi
 }
@@ -381,6 +392,7 @@ env_brew() {
   if [[ -z "${BREW_RESET}" ]]; then
   BREW_RESET="flase"
   fi
+
 }
 brewDo() {
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
@@ -391,6 +403,17 @@ brewDo() {
     fi
   else
     /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BINARY}" "$@"
+  fi
+}
+brewRun() {
+  if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
+    if [ "$EUID" -ne 0 ] ;then
+      "${BREW_BIN}" $@
+    else
+      /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}" $@
+    fi
+  else
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}" $@
   fi
 }
 brew_check() {
@@ -477,7 +500,7 @@ brew_update() {
   fi
 }
 brew_tap() {
-  if [[ -z "${PACKAGE_INSTALL}" ]]; then
+  if [[ -z "${BREW_TAP}" ]]; then
     BREW_TAP="$@"
   fi
   system_user
@@ -488,6 +511,30 @@ brew_tap() {
   cd /Users/"${SYSTEM_USER}"/
   env_package
   brewDo tap "${BREW_TAP}"
+  env_package
+}
+brew_depends() {
+  BREW_DEPENDS="$@"
+  brew_check
+  env_brew
+  system_user
+  if [[ -z $(brewDo list | grep $BREW_DEPENDS) ]]; then
+    package_install "${BREW_DEPENDS}"
+  fi
+  env_package
+}
+brew_run() {
+  if [[ -z "${BREW_RUN}" ]]; then
+    BREW_RUN="$@"
+  fi
+  system_user
+  if [[ -z "${BREW_RUN}" ]]; then
+    err "nothing specified"
+  fi
+  brew_check
+  cd /Users/"${SYSTEM_USER}"/
+  env_package
+  brewRun "${BREW_RUN}"
   env_package
 }
 #>
