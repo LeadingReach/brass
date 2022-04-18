@@ -7,6 +7,10 @@ then
   exit 1
 fi
 
+# This allows err funtion to exit script whith in a subshell
+set -E
+trap '[ "$?" -ne 77 ] || exit 77' ERR
+
 if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
   echo "NONINTERACTIVE ENABLED"
@@ -117,26 +121,28 @@ sudo_reset() {
   sed -i '' '/#brass/d' /etc/sudoers
 }
 run_config () {
-  if [[ $file == "yes" ]]; then
-    cfg="$(parse_yaml $cfg)"
-  elif [[ $url == "yes" ]]; then
-      if [[ -n $token ]]; then
-        cfg="$(parse_yaml <(curl -H "Authorization: token $token" $cfg))"
+  if [[ "${file}" == "yes" ]]; then
+    cfg="$(parse_yaml ${cfg})"
+  elif [[ "${url}" == "yes" ]]; then
+      if [[ -n "${token}" ]]; then
+        cfg="$(parse_yaml <(curl -H "Authorization: token ${token}" ${cfg}))"
       else
-        cfg="$(parse_yaml <(curl -s $cfg))"
+        cfg="$(parse_yaml <(curl -s ${cfg}))"
       fi
   else
-    cfg=$(echo "$cfg" | awk -F"\-C\ " '{print $2}' | tr ' ' '\n')
+    cfg=$(echo "${cfg}" | awk -F"\-C\ " '{print $2}' | tr ' ' '\n')
   fi
   while IFS= read -r line; do
-    run=$(echo $line | awk -F'=' '{print $1}')
-    if [[ $run == notify* ]]; then
-      str=$(echo $line | awk -F'=' '{print $2}')
+    run=$(echo "${line}" | awk -F'=' '{print $1}')
+    if [[ "${run}" == notify* ]]; then
+      str=$(echo "${line}" | awk -F'=' '{print $2}')
     else
-      str=$(echo $line | awk -F'=' '{print $2}' | tr -d '"')
+      str=$(echo "${line}" | awk -F'=' '{print $2}' | tr -d '"')
     fi
-    $run $str
-  done < <(echo "$cfg")''
+    echo "${run}"
+    echo "${str}"
+    exit 77
+  done < <(echo "${cfg}")''
   sudo_reset
 }
 parse_yaml() {
@@ -551,7 +557,6 @@ notify_iconLink() {
     unset notify_iconLink
   else
     notify_iconLink=$(echo "$@" | tr -d '"')
-    curl "$notify_iconLink" --output "$notify_iconPath"
   fi
 }
 notify_iconPath() {
@@ -560,6 +565,9 @@ notify_iconPath() {
   else
     notify_iconPath=$(echo "$@" | tr -d '"')
     notify_icon="POSIX file (\"$notify_iconPath\" as string)"
+  fi
+  if [[ -n "${notify_iconLink}" ]]; then
+    curl "${notify_iconLink}" --output "${notify_iconPath}"
   fi
 }
 notify_dialog() {
@@ -587,10 +595,12 @@ notify_allowCancel() {
   fi
 }
 notify_run() {
+  echo "$notify_icon"
+  sleep 10
   notify_input=$(/usr/bin/osascript<<-EOF
     tell application "System Events"
     activate
-    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon $notify_icon)
+    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon "$notify_icon)"
     end tell
     return myAnswer
     EOF)
@@ -666,9 +676,6 @@ brass_debug() {
 }
 #>
 
-# This allows err funtion to exit script whith in a subshell
-set -E
-trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 if [[ -z $@ ]]; then
   if [[ ! -x /usr/local/bin/brass ]]; then
