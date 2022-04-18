@@ -96,10 +96,10 @@ sudo_check() {
 sudo_disable() {
   system_user
   dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
-  str_binary=$(echo "$dirSudo" | awk -F"/" '{print $(NF)}')
   for str in ${dirSudo[@]}; do
-    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
-      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run $str_binary binary as root without a password\n"
+    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
+      str_binary=$(echo "$str" | awk -F"/" '{print $(NF)}')
+      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run ${str_binary} as root without a password\n"
       echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
     else
       say "etc/sudoers already allows ${SYSTEM_USER} to run $str as root without a password\n"
@@ -599,7 +599,7 @@ notify_run() {
 #< Brass Functions
 brass_update() {
   if [[ "$@" == "yes" ]]; then
-    brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/bras*")
+    brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/brass")
     brassData=$(cat $brassBinary)
     brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
     brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
