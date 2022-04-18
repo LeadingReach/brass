@@ -35,7 +35,7 @@ script_check() {
       u) brew_update yes;;
       z) brew_reset yes;;
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
-      d) PACKAGE="$OPTARG"; package_delete $PACKAGE;;
+      d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
       n) noWarnning="1";;
       l) SYSTEM_FORCE yes;;
       a) SYSTEM_IFADMIN yes; shift;;
