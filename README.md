@@ -13,6 +13,8 @@ This script has only been tested on macOS 12
 sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
 ```
 
+## README.MD is out of date. Will update soon.
+
 ## Usage
 ```bash
   admin@mac$ brass install sl

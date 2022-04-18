@@ -1,67 +1,34 @@
 #!/bin/bash
-#< Endpoint specific enviroment variables
-# consoleUser - Get current logged in user
-consoleUser=$(ls -l /dev/console | awk '{ print $3 }')
-# userClass - Get if current logged in user is admin or standard
-userClass=$(if groups "$consoleUser" | grep -q -w admin; then
-  echo "admin"
-  else
-  echo "standard"
-fi)
+#< System requirements
+# Checks to see if bash is being used
+if [ -z "${BASH_VERSION:-}" ]
+then
+  echo "Bash is required to interpret this script."
+  exit 1
+fi
 #>
-#< User enviroment variables
-user_env() {
-  brew_path="/Users/$user/.homebrew"; if [[ ! -d "$brew_path" ]]; then unset brew_path; else
-  brew_bin="/Users/$user/.homebrew/bin/"
-  brew_binary="/Users/$user/.homebrew/bin/brew"
-  brew_user=$(ls -al $brew_path | awk '{ print $3; }')
-  brew_cellar="/Users/$user/.homebrew/Cellar"
-  brew_caskroom="/Users/$user/.homebrew/Caskroom"
-  fi
-}
-#>
-#< System enviroment variables
-sys_env() {
-  #< Architecture specific Directory varibales
-  if [[ `uname -m` == 'arm64' ]]; then
-    brew_user=$(ls -al /opt/homebrew/bin/brew | awk '{ print $3; }')
-    brew_binary="/opt/homebrew/bin/brew"
-    brew_path="/opt/homebrew"
-    brew_cellar="/opt/homebrew/Cellar"
-    brew_caskroom="/opt/homebrew/Caskroom"
-  else
-    brew_user=$(ls -al /usr/local/Homebrew/bin/brew | awk '{ print $3; }')
-    brew_binary="/usr/local/Homebrew/bin/brew"
-    brew_path="/usr/local/Homebrew"
-  fi
-  #>
-}
-#>
+
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:ZvXxs:iruzp:d:t:f:nlaw:bqhyg' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlabqhyg' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       j) token="$OPTARG";;
       g) cfg="$OPTARG"; url="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
-      Z) system_runMode system;;
+      Z) system_runMode system; env_brew;;
       v) system_verbose yes;;
-      X) xcodeCall "$@";;
       x) xcode_update yes;;
-      s) user="$OPTARG"; brew_user;;
+      s) SYSTEM_USER="$OPTARG";;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
       z) brew_reset yes;;
-      p) package="$OPTARG"; package_install $package;;
-      d) package="$OPTARG"; package_delete $package;;
-      t) package="$OPTARG"; package_reset $package;;
-      f) package="$OPTARG"; package_force $package;;
+      p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
+      d) PACKAGE="$OPTARG"; package_delete $PACKAGE;;
       n) noWarnning="1";;
-      l) system_force="yes";;
-      a) system_ifAdmin yes; shift;;
-      w) dialog=$(echo "$@" | awk -F "-w" '{print $2}' | awk -F"-" '{print $1}'); set=$(echo "$@" | awk -F"$dialog" '{print $2}'); notifyFlag;;
+      l) SYSTEM_FORCE yes;;
+      a) SYSTEM_IFADMIN yes; shift;;
       b) brass_debug;;
       q) brass_update yes;;
       g) flags;;
@@ -74,61 +41,23 @@ script_check() {
   sudo_reset
 }
 say() {
-  if [[ ! -z $system_verbose ]]; then
+  if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "$@"
   fi
 }
 err() {
   printf '%s\n' "$1" >&2
-  exit 1
-}
-sudo_check() {
-  # Checks to see if sudo binary is executable
-  if [[ ! -x "/usr/bin/sudo" ]]
-  then
-    err "sudo binary not executable"
-  fi
-
-  # Checks to see if script has sudo priviledges
-  if [ "$EUID" -ne 0 ];then
-  err "sudo priviledges are reqired $@"
-  fi
-}
-sudo_reset() {
-  if [[ -n $system_force ]] || [[ -n $system_ifAdmin ]]; then
-    say "removing brass sudoers entries\n"
-    sed -i '' '/#brass/d' /etc/sudoers
-  fi
-}
-notifyFlag() {
-  notify_title="brass"
-  notify_timeout="10"
-  applescriptCode="display dialog \"$dialog\" buttons {\"Okay\"} giving up after $notify_timeout with title \"$notify_title\""
-  say "Displaying notification to user\n$dialog\n"
-  /usr/bin/osascript -e "$applescriptCode" &> /dev/null
-  say "Notification dismissed\n"
-  unset dialog
+  brass_debug
+  sudo_reset
+  exit 77
 }
 userDo() {
-  if [[ $consoleUser == $user ]]; then
+  if [[ $consoleUser == ${SYSTEM_USER} ]]; then
       "$@"
   else
-    sudo_check "to run brew as another user"
-    /usr/bin/sudo -i -u $user "$@"
+    sudo_check "to run as another user"
+    /usr/bin/sudo -i -u ${SYSTEM_USER} "$@"
   fi
-}
-noSudo() {
-  system_user
-  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
-  str_binary=$(echo "$dirSudo" | awk -F"/" '{print $(NF)}')
-  for str in ${dirSudo[@]}; do
-    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
-      say "Modifying /etc/sudoers to allow $user to run $str_binary binary as root without a password\n"
-      echo "$user         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
-    else
-      say "etc/sudoers already allows $user to run $str as root without a password\n"
-    fi
-  done
 }
 countdown() {
   sp="9876543210"
@@ -152,6 +81,35 @@ warning() {
   	printf "\nYou have been warned.\n"
     sleep 1
   fi
+}
+sudo_check() {
+  # Checks to see if sudo binary is executable
+  if [[ ! -x "/usr/bin/sudo" ]]
+  then
+    err "sudo binary not executable"
+  fi
+
+  # Checks to see if script has sudo priviledges
+  if [ "$EUID" -ne 0 ];then
+  err "sudo priviledges are reqired $@"
+  fi
+}
+sudo_disable() {
+  system_user
+  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
+  str_binary=$(echo "$dirSudo" | awk -F"/" '{print $(NF)}')
+  for str in ${dirSudo[@]}; do
+    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep -e "$str""|""#brass") ]; then
+      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run $str_binary binary as root without a password\n"
+      echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
+    else
+      say "etc/sudoers already allows ${SYSTEM_USER} to run $str as root without a password\n"
+    fi
+  done
+}
+sudo_reset() {
+  say "removing brass sudoers entries\n"
+  sed -i '' '/#brass/d' /etc/sudoers
 }
 run_config () {
   if [[ $file == "yes" ]]; then
@@ -193,17 +151,386 @@ parse_yaml() {
       }
    }'
 }
+#>
+
+#< System Functions
+env_system() {
+  if [[ `uname -m` == 'arm64' ]]; then
+    BREW_PREFIX="/opt/homebrew" # changed from BREW_PATH
+    BREW_BINARY="/opt/homebrew/bin/brew"
+    if [[ ! -x "$BREW_BINARY" ]]; then unset BREW_BINARY; else
+      BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
+      BREW_REPO="/opt/homebrew"
+      BREW_CELLAR="/opt/homebrew/Cellar"
+      BREW_CASKROOM="/opt/homebrew/Caskroom"
+    fi
+  else
+    BREW_PREFIX="/usr/local" # changed from BREW_PATH
+    BREW_BINARY="/usr/local/Homebrew/bin/brew"
+    if [[ ! -x "${BREW_BINARY}" ]]; then unset BREW_BINARY; else
+      BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
+      BREW_REPO="/usr/local/Homebrew"
+      BREW_CELLAR="/usr/local/Cellar"
+      BREW_CASKROOM="/usr/local/Caskroom"
+    fi
+  fi
+}
+env_local() {
+  BREW_PREFIX="/Users/${SYSTEM_USER}/.homebrew"
+  BREW_BINARY="/Users/${SYSTEM_USER}/.homebrew/bin/brew"
+  if [[ ! -x "$BREW_BINARY" ]]; then unset BREW_BINARY; else
+    BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
+    BREW_REPO="/Users/${SYSTEM_USER}/.homebrew"
+    BREW_CELLAR="/Users/${SYSTEM_USER}/.homebrew/Cellar"
+    BREW_CASKROOM="/Users/${SYSTEM_USER}/.homebrew/Caskroom"
+  fi
+}
+system_verbose(){
+  if [[ "${@}" == "yes" ]] || [[ -z "${@}" ]]; then
+    SYSTEM_VEROBSE="yes"
+  else
+    SYSTEM_VEROBSE="false"
+  fi
+}
+system_runMode() {
+  if [[ "${@}" != "system" ]] || [[ -z "${@}" ]]; then
+    SYSTEM_RUNMODE="local"
+  else
+    SYSTEM_RUNMODE="system"
+  fi
+}
 system_force() {
+  # Checks to see if system force is enabled
+  if [[ "${@}" != "yes" ]] || [[ -z "${@}" ]]; then
+    SYSTEM_FORCE="false"
+  else
+    SYSTEM_FORCE="false"
+  fi
+}
+system_user() {
+  # Checks to see if a user has been specified
+  if [[ -z "${SYSTEM_USER}" ]]; then
+    if [[ -z "${@}" ]]; then
+      say "No user specified. Continuing as ${CONSOLE_USER}\n"
+      SYSTEM_USER="${CONSOLE_USER}"
+    else
+      SYSTEM_USER="${@}"
+    fi
+    # Checks to see if the specified user is present
+    if id "${SYSTEM_USER}" &>/dev/null; then
+      say "System user found: ${SYSTEM_USER}\n"
+    else
+      err "${SYSTEM_USER} not found"
+    fi
+
+    # Checks to see if sudo priviledges are required
+    if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+      sudo_check "to run brew as another user"
+    fi
+  fi
+}
+system_ifAdmin() {
   if [[ "$@" == "yes" ]]; then
-    system_force="yes"
-    sudo_check "to run in noninteractive mode"
-    noSudo
+    SYSTEM_IFADMIN="yes"
+    if [[ ${USER_CLASS} == "admin" ]]; then
+      say "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}\n"
+      SYSTEM_USER="${CONSOLE_USER}"
+    fi
+  else
+    SYSTEM_IFADMIN="false"
   fi
 }
 #>
+
+#< Xcode Functions
+env_xcode() {
+  XCODE_PREFIX="/Library/Developer/CommandLineTools"
+  if [[ ! -d "${XCODE_PREFIX}" ]]; then
+    unset XCODE_PREFIX
+  fi
+
+  if [[ "${@}" == "check_installed_version" ]] && [[ -n "${XCODE_PREFIX}" ]]; then
+    say "Checking for the installed version of xcode CommandLineTools"
+    XCODE_INSTALLED_VERSION=$(xcode_installed_version)
+    say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}"
+  elif [[ "${@}" == "check_latest_version" ]]; then
+    echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
+    XCODE_LATEST_VERSION=$(xcode_latest_version)
+    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}"
+  fi
+
+  if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
+    XCODE_INSTALLED_VERSION="did not check"
+  fi
+
+  if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
+    XCODE_LATEST_VERSION="did not check"
+  fi
+}
+xcode_trick() {
+  # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
+  /usr/bin/sudo /usr/bin/touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+}
+xcode_untrick() {
+  /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+}
+xcode_check_installed() {
+  if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then env_xcode;
+    if [[ ! -d "${XCODE_PREFIX}" ]]; then XCODE_INSTALLED="flase";
+      printf "Xcode CommandLineTools directory not defined\n"
+      printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
+      xcode_install
+    else XCODE_INSTALLED="yes";
+    fi; env_xcode
+  fi; XCODE_CHECK_INSTALLED="yes"
+}
+xcode_installed_version() {
+  if [[ -n "${XCODE_PREFIX}" ]]; then
+    pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}'
+  fi
+}
+xcode_latest_version() {
+  sudo_check "to check the latest version of xcode"
+  xcode_trick
+  echo $(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
+  xcode_untrick
+}
+xcode_install () {
+  if [[ "${@}" == "yes" ]]; then
+    env_xcode check_latest_version
+    xcode_trick
+    /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
+    printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+    xcode_untrick
+  fi
+}
+xcode_remove () {
+  if [[ "${@}" == "yes" ]]; then
+    if [[ -d "${XCODE_PREFIX}" ]]; then
+      printf "Uninstalling xcode\n"
+      sudo rm -r "${XCODE_PREFIX}"
+    else
+      printf "xcode not installed\n"
+    fi
+  fi
+}
+xcode_update() {
+  if [[ "${@}" == "yes" ]]; then
+    env_xcode check_installed_version
+    env_xcode check_latest_version
+    # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
+    if echo "${XCODE_INSTALLED_VERSION}" "${XCODE_LATEST_VERSION}" | awk '{exit !( $1 < $2)}'; then
+      printf "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
+      xcode_remove
+      xcode_install
+    else
+      printf "xcode is up to date.\n"
+    fi
+  fi
+}
+#>
+
+#< Brew Functions
+env_brew() {
+  system_user
+  if [[ "${SYSTEM_RUNMODE}" == "system" ]]; then
+    env_system
+    if [[ -x "${BREW_BINARY}" ]]; then
+      say "System Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+    else
+      say "System Mode Enabled\n"
+    fi
+  else
+    env_local
+    if [[ -x "${BREW_BINARY}" ]]; then
+      say "User Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+    else
+      say "User Mode Enabled\n"
+    fi
+  fi
+  DIR_BREW=("${BREW_BINARY}" "${BREW_PREFIX}" "${BREW_REPO}" "${BREW_CELLAR}" "${BREW_CASKROOM}" "${BREW_UESR}")
+
+  # Brew Debug info
+  if [[ -z "${BREW_BINARY}" ]]; then
+    BREW_STATUS="not installed"
+  else
+    BREW_STATUS="installed"
+  fi
+
+  if [[ -z "${BREW_RESET}" ]]; then
+  BREW_RESET="flase"
+  fi
+}
+brewDo() {
+  if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
+    if [ "$EUID" -ne 0 ] ;then
+      "${BREW_BINARY}" "$@"
+    else
+      /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BINARY}" "$@"
+    fi
+  else
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BINARY}" "$@"
+  fi
+}
+brew_check() {
+  # Update brew enviroment variables
+  env_brew
+
+  # Check to see if brew is installed
+  if [[ -z "${BREW_BINARY}" ]]; then
+    BREW_STATUS="not installed"
+    printf "brew directory not defined\nInstalling brew. Press ctrl+c to cancel. Timeout:  "; countdown
+    brew_install yes
+    env_brew
+  fi
+
+  # Checks to see if brew is owned by the correct user
+  if [[ -d "${BREW_PREFIX}" ]] && [[ "${BREW_USER}" != "${SYSTEM_USER}" ]]; then
+    echo "${SYSTEM_USER} does not own ${BREW_PREFIX}"
+    printf "${SYSTEM_USER} will take ownership of ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
+    userDo /usr/bin/sudo /usr/sbin/chown -R ${SYSTEM_USER}: ${BREW_PREFIX}
+  fi
+}
+brew_install() {
+  if [[ "$@" == "yes" ]]; then
+    system_user
+    env_brew
+    if [[ -x "${BREW_BINARY}" ]]; then
+      echo "brew is already installed to ${BREW_PREFIX}. Resetting brew. Press ctrl+c to cancel. Timeout:  "; countdown
+      BREW_RESET="yes"
+      if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
+        brew_uninstall
+      else
+        brew_system_uninstall
+      fi
+    else
+      if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
+        userDo mkdir -p "${BREW_PREFIX}"
+        userDo curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
+      else
+        brew_system_install
+      fi
+    fi
+    brew_check
+  fi
+}
+brew_system_install () {
+  sudo_check "to install homebrew"
+  if [[ -x "${BREW_BINARY}" ]]; then
+    BREW_STATUS="installed"
+    printf "brew is already installed to ${BREW_PREFIX}. Resetting brew. Press ctrl+c to cancel. Timeout:  "; countdown
+    BREW_RESET="yes"
+    brew_system_uninstall
+  fi
+  cd /Users/"$SYSTEM_USER"/
+  printf "Installing brew. Press ctrl+c to cancel. Timeout:  "; countdown
+  echo -ne "y\n" | sudo -u "${SYSTEM_USER}" /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  echo "Brew install complete"
+}
+brew_uninstall() {
+  if [[ "$@" == "yes" ]]; then
+    system_user
+    env_brew
+    if [[ -d "${BREW_PREFIX}" ]]; then
+      if [[ "${SYSTEM_RUNMODE}" == "system" ]]; then
+        brew_system_uninstall
+      else
+        printf "Uninstalling brew from ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
+        rm -r "${BREW_PREFIX}"
+      fi
+    else
+      echo "No brew installation found"
+    fi
+  fi
+}
+brew_system_uninstall () {
+  cd /Users/"$SYSTEM_USER"/
+  printf "Uninstalling brew from ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
+  /usr/bin/sudo -u "${SYSTEM_USER}" echo -ne 'y\n' | /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+}
+brew_update() {
+  if [[ "$@" == "yes" ]]; then
+    brew_check
+    say "brew_update: Enabled.\nUpdating brew\n"
+    brewDo update
+  fi
+}
+#>
+
+#< Enviroment variables
+# consoleUser - Get current logged in user
+CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
+
+# userClass - Get if current logged in user is admin or standard
+USER_CLASS=$(if groups "${CONSOLE_USER}" | grep -q -w admin; then
+  echo "admin"
+  else
+  echo "standard"
+fi)
+#>
+
+#< Package Functions
+env_package() {
+  if [[ -z $(ls "${BREW_PREFIX}/bin" | grep "${PACKAGE}") ]]; then
+    PACKAGE_DIR="$brew_caskroom/$PACKAGE"
+    PACKAGE_NAME=$(brewDo info "${PACKAGE}" | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
+    PACKAGE_LINK="/Applications/${PACKAGE_NAME}"
+    #PACKAGE_OWNDER=$(stat "${PACKAGE_LINK}" | awk '{print $5}')
+  else
+    PACKAGED_DIR="${BREW_PREFIX}/bin/${PACKAGE}"
+    PACKAGE_NAME="${PACKAGE}"
+    #PACKAGE_OWNDER=$(stat "${PACKAGE_DIR}" | awk '{print $5}')
+    PACKAGE_LINK="${PACKAGE_DIR}"
+  fi
+
+  if [[ -n "${PACKAGE_LINK}" ]]; then
+    PACKAGE_INSTALLED="yes"
+  else
+    PACKAGE_INSTALLED="false"
+  fi
+}
+package_install() {
+  if [[ -z "${PACKAGE_INSTALL}" ]]; then
+    PACKAGE_INSTALL="$@"
+  fi
+  system_user
+  if [[ -z "${PACKAGE_INSTALL}" ]]; then
+    err "no package specified"
+  fi
+  brew_check
+  cd /Users/"${SYSTEM_USER}"/
+  env_package
+  brewDo install $PACKAGE_INSTALL -f
+  env_package
+}
+package_uninstall() {
+  if [[ -z "${PACKAGE_UNINSTALL}" ]]; then
+    PACKAGE_UNINSTALL="$@"
+  fi
+  system_user
+  if [[ -z "${PACKAGE_UNINSTALL}" ]]; then
+    err "no package specified"
+  fi
+  brew_check
+  cd /Users/"${SYSTEM_USER}"/
+  env_package
+  brewDo uninstall "${PACKAGE_UNINSTALL}"
+  env_package
+}
+process_kill() {
+  if [[ -z "${PROCESS_KILL}" ]]; then
+    PROCESS_KILL="${@}"
+  fi
+  if [[ "${PROCESS_KILL}" != "no" ]]; then
+    system_user
+    pkill -9 "${PROCESS_KILL}"
+  fi
+}
+#>
+
 #< Notify Functions
 notify_title(){
-  if [[ -z "$@" ]]; then
+  if [[ -z "$@" ]] ; then
     notify_title=brass
   else
     notify_title=$(echo "$@" | tr -d '"')
@@ -226,13 +553,14 @@ notify_iconPath() {
   fi
 }
 notify_dialog() {
-  notify_dialog="$@"
-  if [[ -z $notify_dialog ]]; then
-    echo "$@"
-    err "Dialog must be specified"
-  else
-    notify_dialog=$(echo "$@" | tr -d '"')
-  fi
+    notify_dialog="$@"
+    if [[ -z $notify_dialog ]]; then
+      echo "$@"
+      err "Dialog must be specified"
+    else
+      notify_dialog=$(echo "$@" | tr -d '"')
+    fi
+    notify_run
 }
 notify_timeout() {
   if [[ -z "$@" ]]; then
@@ -242,11 +570,10 @@ notify_timeout() {
   fi
 }
 notify_allowCancel() {
-  notify_buttons="\"okay\", \"cancel\""
-}
-notify_display() {
-  if [[ "$@" == "yes" ]]; then
-    notify_run
+  if [[ "${@}" = "\"no"\" ]]; then
+    notify_buttons="\"okay\""
+  else
+    notify_buttons="\"okay\", \"not now\""
   fi
 }
 notify_run() {
@@ -257,393 +584,14 @@ notify_run() {
     end tell
     return myAnswer
     EOF)
+    if [[ $notify_input == "not now" ]]; then
+      err "user canceled"
+    fi
     say "User user input: $notify_input\n"
     unset dialog
-    if [[ $notify_input == "cancel" ]]; then
-      exit
-    fi
 }
 #>
-#< System Functions
-system_runMode() {
-  if [[ "$@" == "system" ]]; then
-    system_runMode="yes"
-  else
-    unset $system_runMode
-  fi
-}
-system_verbose() {
-  if [[ "$@" == "yes" ]]; then
-    system_verbose="yes"
-  else
-    unset $system_verbose
-  fi
-}
-system_user() {
-  if [[ -z $user ]]; then
-    user=$consoleUser
-  fi
-  if id "$user" &>/dev/null; then
-    say "System user found: $user\n"
-  else
-    err "$user not found"
-  fi
-}
-system_ifAdmin() {
-  if [[ "$@" == "yes" ]]; then
-    system_ifAdmin="1"
-    if [[ $userClass == "admin" ]]; then
-      say "Brew admin enabled: $consoleUser is an admin user. Running brew as $consoleUser\n"
-      user=$consoleUser
-    fi
-  fi
-}
-system_foce() {
-  if [[ "$@" == "yes" ]]; then
-    system_foce="yes"
-  else
-    unset $system_foce
-  fi
-}
-#>
-#< Xcode Funtions
-xcodeCall() {
-  xcode_checkInstalled
-  #< This checks for flags
-  while getopts 'olnrah' flag; do
-    case "${flag}" in
-      o) xcode_checkInstalled ;;
-      l) xcode_versionLatest ;;
-      n) xcode_install ;;
-      r) xcode_remove ;;
-      a) xcode_update;;
-      h) xcodeHelp ;;
-    esac
-  done
-  #>
-}
-xcode_trick() {
-  # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
-  /usr/bin/sudo /usr/bin/touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-}
-xcode_untrick() {
-  /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-}
-xcode_env() {
-  xcode_path="/Library/Developer/CommandLineTools"; if [[ ! -d "$xcode_path" ]]; then unset xcode_path; else
-  xcode_version=$(xcode_version)
-  fi
-}
-xcode_checkInstalled() {
-  xcode_env
-  if [[ ! -d "$xcode_path" ]]; then
-    printf "Xcode CommandLineTools directory not defined\n"
-    printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "
-    countdown
-    xcode_install
-  fi
-  xcode_env
-}
-xcode_version() {
-  xcode_version=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}')
-  echo "$xcode_version"
-}
-xcode_versionLatest(){
-  sudo_check "to check the latest version of xcode"
-  #< Tricks apple software update
-  /usr/bin/sudo /usr/bin/touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-  printf "Checking for the latest version of xcode. This may take some time\n"
-  #>
-  #< Sets the variable
-  xcodeLatestVersion=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
-  printf "xcode latest version: $xcodeLatestVersion\n"
-  #>
-  xcode_untrick
-}
-xcode_install () {
-  xcode_versionLatest
-  xcode_trick
-  #< Installs the latest version of xcode
-  /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-$xcodeLatestVersion
-  #>
-  #< Prints xcode package info
-  printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
-  exit 0
-  #>
-  xcode_untrick
-}
-xcode_remove () {
-  #< Checks to see if xcode directory is present
-  if [[ -d /Library/Developer/CommandLineTools ]]; then
-    printf "Uninstalling xcode\n"
-    sudo rm -r /Library/Developer/CommandLineTools
-  else
-    printf "xcode not installed\n"
-    exit 0
-  fi
-  #>
-  #< Verifies that the uninstallation was sucsessful
-  if [[ -d /Library/Developer/CommandLineTools ]]; then
-    printf "error"
-    exit 1
-  else
-    printf "xcode uninstalled\n"
-  fi
-  #>
-}
-xcode_update() {
-  if [[ "$@" == "yes" ]]; then
-    #< Checks for the latest version of xcode
-    xcode_versionLatest
-    #>
-    #< Checks for the curently installed version of xcode
-    xcode_checkInstalled
-    #>
-    #< Compares the two xcode versions to see if the curently installed version is less than the latest versoin
-    if echo $xcodeVersion $xcode_versionLatest | awk '{exit !( $1 < $2)}'; then
-      printf "\nXcode is outdate, updating Xcode version $(xcodeVersion) to $(xcode_versionLatest)"
-      xcode_remove
-      xcode_install
-    else
-      printf "xcode is up to date.\n"
-    fi
-  fi
-  #>
-}
-xcodeHelp() {
-  # Prints xcode functions
-  printf "xcodeMaster\n\\t-xv: Checks for installed version of xcode\n\t-xl: Checks for latest version of xcode available\n\t-xi: Installs the latest version of xcode\n\t-xu: Updates xcode to the latest version\n\t-xr: Removes xcode\n"
-}
-#>
-#< Brew Functions
-brew_env() {
-  if [[ -z $system_runMode ]]; then
-    user_env
-    say "User Mode Enabled: Brew binary is located at $brew_binary\n"
-  else
-    sys_env
-    say "System Mode Enabled: Brew binary is located at $brew_binary\n"
-  fi
-}
-brew_user() {
-  system_user
-  say "brass user: $user\n"
-  # Checks to see if sudo priviledges are required
-  if [[ $user != $consoleUser ]]; then
-    sudo_check "to run brew as another user"
-  fi
-  # Use proper env varables
-  brew_env
-  brew_check
-}
-brew_check() {
-  brew_env
-  if [[ -z $brew_path ]]; then
-    printf "brew directory not defined\nInstalling brew. Press ctrl+c to cancel. Timeout: "; countdown
-    brew_install yes
-    brew_env
-  fi
-  #< Checks to see if brew is owned by the correct user
-  if [[ $(stat $brew_path | awk '{print $5}') != $user ]] && [[ -d $brew_path ]]; then
-    echo "$user does not own $brew_path"
-    if [[ -z $system_force ]]; then
-      read -p "Would you like for $user to take ownership of $brew_path? [Y/N] " yn
-      case $yn in
-          [Yy]* ) userDo sudo chown -R $user: $brew_path;;
-          [Nn]* ) echo "Not owning $brew_path"; exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    else
-      say "setting $user to own $brew_path\n"
-      userDo sudo chown -R $user: $brew_path
-    fi
-  fi
-  #>
-}
-brewDo() {
-  if [[ $consoleUser == $user ]]; then
-    if [ "$EUID" -ne 0 ] ;then
-      $brew_binary "$@"
-    else
-      /usr/bin/sudo -i -u $user $brew_binary "$@"
-    fi
-  else
-    /usr/bin/sudo -i -u $user $brew_binary "$@"
-  fi
-}
-brew_install() {
-  system_user
-  brew_env
-  if [[ "$@" == "yes" ]]; then
-    system_user
-    if [[ -f $brew_binary ]]; then
-      say "brew is installed as $user\n"
-    else
-      if [[ -z $system_runMode ]]; then
-        brew_path="/Users/$user/.homebrew"
-        mkdir -p $brew_path
-        curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C $brew_path
-      else
-        say "install brew as system\n"
-        brew_sysInstall
-      fi
-    fi
-    brew_check
-  fi
-}
-brew_uninstall() {
-  system_user
-  brew_env
-  if [[ "$@" == "yes" ]]; then
-    if [[ -d $brew_path ]]; then
-      if [[ -z $system_runMode ]]; then
-        say "removing $brew_path\n"
-        rm -r $brew_path
-      else
-        say "uninstall bew as system\n"
-        brew_sysRemove
-      fi
-    else
-      echo "No brew installation found"
-    fi
-  fi
-}
-brew_update() {
-  if [[ "$@" == "yes" ]]; then
-    brew_user
-    say "brew_update: Enabled.\nUpdating brew\n"
-    brewDo update
-  fi
-}
-brew_reset(){
-  if [[ "$@" == "yes" ]]; then
-    brew_user
-    brew_uninstall
-    brew_install
-  fi
-}
-brewOwnDirs() {
-  brewSetDirs=("$brew_path")
-  for str in ${brewSetDirs[@]}; do
-    if [[ $(stat $str | awk '{print $5}') != $user ]]; then
-      if [ -d $str ]; then
-        echo "$user owning $str"
-        sudo chown -R $user: $str
-      else
-        mkdir -p "$str"
-        echo "$user owning $str"
-        sudo chown -R $user: $str
-      fi
-    fi
-  done
-}
 
-#< Brew System Functions
-brew_sysInstall () {
-  if [ -f $brew_binary ]; then
-    printf "brew already installed.\n"
-  else
-    printf "\nNo Homebrew installation detectd.\nInstalling Homebrew.\nStarting brew install as $user\n"
-    cd /Users/$user/
-    brewOwnDirs
-    echo -ne "y\n" | sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo "Brew install complete"
-  fi
-}
-brew_sysRemove () {
-  cd /Users/$user/
-  if [[ -z $system_force ]]; then
-    /usr/bin/sudo -u $user /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
-  else
-    /usr/bin/sudo -u $user echo -ne 'y\n' | /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
-  fi
-}
-#>
-#>
-#< Package Functions
-package_env() {
-  if [[ -z $(ls $brew_path/bin | grep $package) ]]; then
-  packageDir="$brew_caskroom/$package"
-  packageName=$(brewDo info $package | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
-  packageLink="/Applications/$packageName"
-  packageOwner=$(stat $packageLink | awk '{print $5}')
-else
-  packageDir="$brew_path/bin/$package"
-  packageName="$package"
-  packageOwner=$(stat $packageDir | awk '{print $5}')
-  packageLink=$packageDir
-fi
-if [[ -n $packageLink ]]; then
-  packaged_installed="yes"
-fi
-}
-package_install() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package="$@"
-    brew_user
-    if [[ -z $package ]]; then
-      read -p 'Which package would you like to install? ' package
-    fi
-    brew_check
-    cd /Users/$user/
-    package_env
-    brewDo install $package
-    package_env
-  fi
-}
-package_delete() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package="$@"
-    brew_user
-    if [[ -z $package ]]; then
-      read -p 'Which package would you like to uninstall? ' package
-    fi
-    say "Brew is installed as $user\n"
-    cd /Users/$user/
-    package_env
-    brewDo uninstall $package
-  fi
-}
-package_force() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package="$@"
-    brew_user
-    if [[ -z $package ]]; then
-      read -p 'Which package would you like to force install? ' package
-    fi
-    brew_check
-    cd /Users/$user/
-    package_env
-    brewDo install $package -f
-  fi
-}
-package_killProcess() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package_process="$@"
-  fi
-}
-package_reset() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package="$@"
-    brew_user
-    pkill -9 $package_process
-    package_delete $package
-    brew_env
-    brewDo install $package -f
-  fi
-}
-package_resetAuto() {
-  if [[ -n "$@" ]] && [[ "$@" != "no" ]]; then
-    package="$@"
-    brew_user
-    package_nameProcess=$(echo $package | awk -F".app" '{ print $1 }')
-    pkill -9 -f $package_nameProcess
-    package_delete $package
-    brew_env
-    brewDo install $package -f
-  fi
-}
-#>
 #< Brass Functions
 brass_update() {
   if [[ "$@" == "yes" ]]; then
@@ -654,522 +602,85 @@ brass_update() {
     if [[ -z $brassDif ]]; then
       printf "brass is up to date.\n"
     else
-      if [[ -z $system_force ]]; then
-        read -p "brass update available. Would you like to update to the latest version of brass? [Y/N] " yn
-        case $yn in
-            [Yy]* ) brass_upgrade;;
-            [Nn]* ) printf "Skipping update\n";;
-            * ) echo "Please answer yes or no.";;
-        esac
-      else
-        brass_upgrade
-      fi
-    fi
-    if [[ ! -z $quiet_force ]]; then
+      printf "brass upgrade available. Upgrading brass. Press ctrl+c to cancel. Timeout:  "; countdown
       brass_upgrade
     fi
   fi
 }
 brass_upgrade() {
+  sudo_check "to install brass"
   curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
-  say "upgrade complete.\n"
-}
-brass_debug() {
-  if [[ "$@" == "yes" ]]; then
-  # User information
-  	printf "\nDebug - User information:\n"
-  	printf "\tconsoleUser: $consoleUser\n"
-  	printf "\tuserClass: $consoleUser is $userClass\n"
-  	printf "\tbrew_user: brew will run as $user\n"
-  # Package information
-  	printf "\nDebug - Package Information\n"
-  	if [ -z "$package_name" ]
-  	then
-  		printf "\tNo package defined."
-  	else
-  		printf "\tpackage info: $package_name\n"
-  		brewDo info $package_name | sed 's/^/\t\t/'
-  		if [[ $brewOwnPackage == 1 ]]; then
-  			printf "\nbrewOwnPackage: Enabled.\n"
-  			printf "\tpackage_nameDir=$package_nameDir\n"
-  			printf "\tPermissions:\n$(ls -al $package_nameDir | sed 's/^/\t\t/')\n"
-  			printf "\tpackagePath=$package_namePath\n"
-  			printf "\tPermissions:\n$(ls -al $package_namePath | grep .app | sed 's/^/\t\t/')\n"
-  			printf "\tpackage_nameLink=$package_nameLink\n"
-  			printf "\tPermissions:\n$(ls -al $package_nameLink | sed 's/^/\t\t/')\n"
-  			printf "\tpackageOwner=$package_nameOwner\n"
-  		else
-  			printf "\nbrewOwnPackage: Disabled\n"
-  		fi
-  	fi
-  	# Xcode infomation
-  		printf "\nDebug - Xcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
-  	# Check if brew_reset is enabled
-  # Brew enviroment variables
-  	cd /Users/$user/
-  	printf "\nDebug - enviroment variables:\n"
-  	printf "\tbrew_user=$brew_user\n\tbrewBinary=$brew_binary\n\tbrewDir=$brewDir\n\tbrewCache=$brewCache\n"
-  	brewDo --env | awk -F"export" '{ print $2 }' | sed 's/^/\t\t/'
-  	printf "\nHOMEBREW_CACHE="
-  	brewDo --cache | sed 's/^/\t\t/'
-  	brewDo --cache | sed 's/^/\t\t/'
-  fi
-}
-help () {
-  echo "
-#  # Standard brew commands
-#
-#  admin@mac\$ brass install sl
-#
-#    brass user: admin
-#    System user found: admin
-#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#    Installing sl
-#    done
-#
-#  brass can use its own flags to specify which user should run brew.
-#  When using brass flags, the standard brew commands such as install and info no longer work.
-#
-#  user@mac\$ sudo brass -s admin
-#
-#    System user found: admin
-#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#    done
-#
-#
-#  # Install a package as admin
-#  user@mac\$ sudo brass -s admin -p sl
-#
-#    System user found: admin
-#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#    Installing sl
-#    done
-#
-#  # Uninstall a package as admin
-#  user@mac\$ sudo brass -s admin -d sl
-#
-#    System user found: admin
-#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#    Uninstalling /Users/admin.homebrew/Cellar/sl/5.02... (6 files, 37.5KB)
-#    done
-#
-#  # Update xcode and brew, then install package sl as user admin with debug information
-#  user@mac\$ sudo brass -s admin -xup sl -b
-#
-#
-#  brass has the ability to manage the default homebrew prefix.
-#
-#  # Install a package as admin with the default homebrew prefix
-#  user@mac\$ sudo brass -Zs admin -p sl
-#
-#    System user found: admin
-#    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#    Installing sl
-#    done
-#
-#
-#  # Install a package as a user who doesn't own the default homebrew prefix
-#  user@mac\$ sudo brass -Zp sl
-#
-#    System user found: user
-#    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#    user does not own /opt/homebrew
-#    Would you like for user to take ownership of /opt/homebrew? [Y/N] y
-#    Installing sl
-#    done
-#
-#
-#  # Install a package as a user who doesn't own the default homebrew prefix
-#  user@mac\$ sudo brass -nlZp sl
-#
-#    System user found: user
-#    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#    user does not own /opt/homebrew
-#    user taking ownership of /opt/homebrew
-#    Installing sl
-#    done
-#
-#
-#  # Install a package as otheradmin unless console user is an admin
-#    admin@mac\$ sudo brass -as otheradmin -p sl
-#
-#    System user found: otheradmin
-#    Brew admin enabled: admin is an admin user. Running brew as admin
-#    User Mode Enabled: Brew binary is located at /Users/carlpetry/.homebrew/bin/brew
-#    Installing sl
-#    done
-#
-#
-#  # Install a package as otheradmin unless console user is an admin with the default homebrew prefix
-#    admin@mac\$ sudo brass -Zas otheradmin -p sl
-#
-#    System user found: otheradmin
-#    Brew admin enabled: admin is an admin user. Running brew as admin
-#    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#    Installing sl
-#    done
-#
-#
-#  # Install a package as otheradmin unless console user is an admin with the default homebrew prefix,
-#  # with no interaction, no warning, and display debug information.
-#    admin@mac\$ sudo brass -Znlas otheradmin -p sl -b
-#
-#
-#  # You can configure custom text to be displayed in a pop up window at any stage of the script
-#    admin@mac\$ brass -w Starting brew update. -u -w Brew update complete.
-#
-#    #########BRASS#########
-#    #Starting brew update.#
-#    #######################
-#
-#    brass user: admin
-#    System user found: admin
-#    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#    brew_update: Enabled.
-#    Updating brew
-#    Already up-to-date.
-#
-#    #########BRASS#########
-#    #Brew update complete##
-#    #######################
-#
-#
-#  # Install a package as otheradmin unless console user is an admin with the default homebrew prefix,
-#  # with no interaction, no warning, and display debug information
-#  # while showing custom message before and after completion.
-#    admin@mac\$ brass -Znlas otheradmin -w Installing sl. -p sl -b -w done.
-#
-#    System user found: otheradmin
-#    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#
-#    #########BRASS#########
-#    ### Installing sl. ####
-#    #######################
-#
-#    Installing sl
-#
-#    #########BRASS#########
-#    ######## done #######*#
-#    #######################
-  "
-}
-flags() {
-  echo "
-#  -Z: Run brew with default homebrew prefix
-#
-#      # This will run all following operations as the admin user
-#      user@mac\$ sudo brass -Z
-#      System user found: admin
-#      System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#
-#
-#  -s: Run as user. Root access is required.
-#
-#      # This will run all following operations as the admin user
-#      user@mac\$ brass -s admin
-#      System user found: admin
-#      User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#
-#      # This will run all following operations as the admin user with the default homebrew prefix
-#      user@mac\$ brass -Zs admin
-#      System user found: admin
-#      System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-#
-#
-#  -a: Run brew as console user if they are an admin. Run brew as a specified user if not. Root access is required.
-#
-#      # this will run brew as the admin user even though otheradmin has been defined
-#      admin@mac\$ sudo brass -a otheradmin
-#        otheradmin user found.
-#        console user is a local administrator. Continuing as admin.
-#        User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#
-#
-#  -n: Disables force through warnning.
-#
-#      # This will run without any warnings
-#      admin@mac\$ sudo brass -na admin -u
-#
-#
-#  -l: NONINTERACTIVE force through mode
-#
-#      # This will run reguardless of brew owner
-#      admin@mac\$ sudo brass -nls otheradmin
-#        otheradmin user found
-#        warning message Disabled
-#        system_force mode enabled
-#        User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
-#        running as otheradmin
-#
-#
-#  -x: Checks for xcode updates.
-#
-#      # This will check for an xcode update and then run as the admin user
-#      admin@mac\$ brass -xs admin
-#
-#
-#  -u: Checks for brew updates
-#
-#      # This will check for a brew update
-#      admin@mac\$ brass -u
-#
-#
-#      # This will check as a brew update for the admin user
-#      user@mac\$ sudo brass -s admin -u
-#
-#
-#  -p: Installs a brew package
-#
-#      # This will install the brew package sl
-#      admin@mac\$ brass -p sl
-#
-#
-#      # This will update brew and then install/update the package sl
-#      admin@mac\$ brass -up sl
-#
-#
-#      # This will run brew as admin user and then install/update package sl
-#      user@mac\$ sudo brass -s admin -up sl
-#
-#
-#  -d: Unnstalls a brew package
-#
-#      # This will install the brew package sl
-#      admin@mac\$ brass -d sl
-#
-#
-#      # This will run brew as admin user and then uninstall package sl
-#      user@mac\$ sudo brass -s admin -d sl
-#
-#
-#  -t: Renstalls a brew package
-#
-#      # This will reinstall the brew package sl
-#      admin@mac\$ brass -t sl
-#
-#
-#      # This will update brew and then reinstall the package sl
-#      admin@mac\$ brass -ut sl
-#
-#
-#      # This will run brew as admin user and then reinstall package sl
-#      user@mac\$ sudo brass -s admin -utp sl
-#
-#
-#  -f: Force installs a brew package
-#
-#      # This will force install the brew package sl
-#      admin@mac\$ brass -f sl
-#
-#
-#      # This will update brew and then force install the package sl
-#      admin@mac\$ brass -uf sl
-#
-#
-#      # This will run brew as admin user and then force install package sl
-#      user@mac\$ sudo brass -s admin -uf sl
-#
-#
-#  -i: Installs brew
-#
-#      # This will install brew to the users prefix
-#      admin@mac\$ brass -i
-#      # This will install brew to the default prefix
-#      admin@mac\$ brass -Zi
-#
-#
-#      # This will install brew as the admin user to the users prefix
-#      user@mac\$ sudo brass -s admin -i
-#
-#
-#      # This will install brew as the admin user with no warning and no interaction to the users prefix
-#      user@mac\$ sudo brass -nls admin -i
-#
-#
-#  -r: Uninstalls brew
-#
-#      # This will uninstall brew from the users prefix
-#      admin@mac\$ brass -u
-#      # This will uninstall brew from the default prefix
-#      admin@mac\$ brass -Zu
-#
-#
-#      # This will uninstall brew as the admin user from the users prefix
-#      user@mac\$ sudo brass -s admin -r
-#
-#
-#      # This will uninstall brew as the admin user with no warning and no interaction from the users prefix
-#      user@mac\$ sudo brass -nls admin -r
-#
-#
-#  -z: Reinstalls brew
-#
-#      # This will reinstall brew to the users prefix
-#      admin@mac\$ brass -z
-#
-#      # This will reinstall brew to the default prefix
-#      admin@mac\$ brass -Zz
-#
-#
-#      # This will reinstall brew as the admin user
-#      user@mac\$ sudo brass -z admin -s
-#
-#
-#      # This will reinstall brew as the admin user with no warning and no interaction
-#      user@mac\$ sudo brass -nlz admin -s
-#
-#  -w: Displays GUI notification.
-#
-#      # This will warn the user that brew is going to update with a popup window
-#      admin@mac\$ brass -w Updating brew -u
-#
-#      # This will warn the user that brew is going to reinstall sl and then notify the user when it is complete.
-#      admin@mac\$ brass -w reinstalling sl. This may take some time. -tp sl -w sl has been reinstalled. Train away.
-#
-#
-#  -b: Shows debug information.
-#
-#      # This will show debug information
-#      admin@mac\$ brass -b
-#
-#
-#      # This will update brew and then install package sl with debug information
-#      user@mac\$ brass -up sl -b
-#
-#
-#  -q: Checks for brass Updates
-#
-#      # This will check for brass update
-#      admin@mac\$ brass -q
-#      brass update Enabled
-#      brass update available. Would you like to update to the latest version of brass? [Y/N] y
-#      Installing brass to /usr/local/bin
-#
-#      # This will check for brass update and update if found with no interaction.
-#      admin@mac\$ brass -lnq
-#      brass update Enabled
-#      brass update available.
-#      Installing brass to /usr/local/bin
-#
-#  -h: Shows brass help
-#
-#  -q: Shows brass flags
-#
-#  -y: Shows brass yaml configuration
-#
-#
-#  ###  -X: Xcode management utility.
-#
-#  Using the -X flag enables the Xcode management utility.
-#
-#    -o: Checks for the current installed version of Xcode
-#
-#        # This will show the currently installed version of xcode installed.
-#        user@mac\$ brass -Xo
-#
-#
-#    -l: Checks for the latest version of Xcode
-#
-#        # This will check for the latest version of xcode available.
-#        user@mac\$ brass -Xl
-#
-#
-#    -n: Installs the latest version of Xcode
-#
-#        # This will install the latest version of xcode available.
-#        user@mac\$ brass -Xn
-#
-#
-#    -r: Uninstalls Xcode
-#
-#        # This will uninstall xcode
-#        user@mac\$ brass -Xr
-#
-#
-#    -a: Updates to the latest version of Xcode
-#
-#        # This will update to the latest version of xcode
-#        user@mac\$ brass -Xa
-#
-#
-#    -h: Shows Xcode management utility help
-#
-#        # This will show the help information for Xcode management utility
-#        user@mac\$ brass -Xh
-  "
-}
-yaml() {
-  echo "
-#  brass has the ability to to configured by a yaml config file.
-#  The yaml configuration is seperated into seven categories.
-#    admin@mac\$ brass -c \"/path/to/configfile.yaml\"
-#
-#  You can pass through yaml variables straight into brass
-    admin@mac\$ brass -C system_runMode=\"local\" xcode_update=\"yes\" notify_dialog=\"are you sure you would like to install sl?\" notify_allowCancel=\"yes\" notify_display=\"yes\" #package_name=\"sl\"
-#
-#    brassconf.yaml example:         # you can name this what ever you would like
-#
-#    system:                         # to configure system Variables.
-#      runMode: local | system       # local runs brew un a user specific prefix, system runs brew in the default system prefix.
-#      verbose: yes | blank/no       # runs brass in verbose mode.
-#      user: username                # specifies which user should run brass.
-#      ifAdmin: yes | blank/no       # if the console user is an admin, it will ignore the specifed user and run as the console user.
-#      force: yes | blank/no         # will push through the script configuration with no interaction.
-#
-#    xcode:                          # to configure xcode
-#      update: yes | blank/no        # will install/update xcode CommandLineTools
-#
-#    brew:                           # to configure brew variable
-#      install: yes | blank/no       # will install brew if it is not present.
-#      uninstall: yes | blank/no     # will uninstall brew if it is present.
-#      reset: yes | blank/no         # will reset brew if it is present.
-#      update: yes | blank/no        # will update brew.
-#
-#    package:                        # to configure the brew package
-#      name: package | blank/no      # the package you would like to configure. will install the package if not found unless you use the delete funtion.
-#      delete: package | blank/no    # will delete package if present.
-#      reset: yes | blank/no         # will reinstall the package
-#      force: yes | blank/no         # will force install the package
-#
-#    brass:                          # to configure brass settings
-#      update: yes | blank/no        # update brass
-#      debug: ye | blank/no          # show brass debug information
-#
-#    notify:                         # shows applescript notification. This can be set anywhere in the configuation file as many times as needed.
-#      title: Title | blank=brass    # title of the notification
-#      iconPath: /path/icon | blank  # path to icon shown in notification. Leave blank if not needed. Spaces unsupported.
-#      iconLink: \"icon.url/icon.png\" # this will download the icon to the specified path. Leave blank if not needed.
-#      dialog: Hello world           # Dialog to be displaed in the notification.
-#      timeout: 10 | blank=10        # how long the notification will stay up until the script contines.
-#      allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
-#      display: yes | blank/no       # enables/disables the notification
-    "
+  chmod +x /usr/local/bin/brass
+  say "install complete.\n"
 }
 #>
-#< logic
+
+
+brass_debug() {
+  if [[ "${BREW_STATUS}" == "not installed" ]]; then
+    BREW_DEBUG="BREW_STATUS=${BREW_STATUS}"
+  else
+    BREW_DEBUG="BREW_STATUS=${BREW_STATUS}
+      BREW_RESET=${BREW_RESET}
+      BREW_USER=${BREW_USER}
+      BREW_PREFIX=${BREW_PREFIX}
+      BREW_REPO=${BREW_REPO}
+      BREW_CELLAR=${BREW_CELLAR}
+      BREW_CASKROOM=${BREW_CASKROOM}"
+  fi
+
+
+
+  printf "BRASS DEBUG:
+
+    USER DEBUG:
+      CONSOLE_USER=${CONSOLE_USER}
+      USER_CLASS=${USER_CLASS}
+
+    SYSTEM DEBUG:
+      SYSTEM_VEROBSE=${SYSTEM_VEROBSE}
+      SYSTEM_RUNMODE=${SYSTEM_RUNMODE}
+      SYSTEM_FORCE=${SYSTEM_FORCE}
+      SYSTEM_IFADMIN=${SYSTEM_IFADMIN}
+      SYSTEM_USER=${SYSTEM_USER}
+
+    XCODE DEBUG:
+      XCODE_CHECK_INSTALLED=${XCODE_CHECK_INSTALLED}
+      XCODE_INSTALLED=${XCODE_INSTALLED}
+      XCODE_INSTALLED_VERSION=${XCODE_INSTALLED_VERSION}
+      XCODE_LATEST_VERSION=${XCODE_LATEST_VERSION}
+
+    BREW DEBUG:
+      ${BREW_DEBUG}
+
+    PACKAGE DEBUG:
+      ${PACKAGE_DEBUG}
+      \n"
+}
+
+# This allows err funtion to exit script whith in a subshell
+set -E
+trap '[ "$?" -ne 77 ] || exit 77' ERR
+
 if [[ -z $@ ]]; then
-  system_force="1"
-  #< Checks to see if brass is installed
-  if [[ ! -f /usr/local/bin/brass ]]; then
-    echo "Installing brass to /usr/local/bin/brass"
+  if [[ ! -x /usr/local/bin/brass ]]; then
+    printf "Installing brass to /usr/local/bin/brass Press ctrl+c to cancel. Timeout:  "; countdown
+    sudo_check "to install brass"
     mkdir -p /usr/local/bin/
-    curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
-    chmod +x /usr/local/bin/brass
+    brass_upgrade
     say "done.\n\n"
   else
-    xcode_checkInstalled
-    brass_upgrade
+    brass_update yes
   fi
-  #>
   printf "use brass -h for more infomation.\n"
   exit
 fi
-script_check $@
-OPTIND=1
-if [[ ! -z "$set" ]]; then
-  script_check $set
-else
-  say "done\n"
+# Checks to see if xcode CommandLineTools is installed
+if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
+  xcode_check_installed
 fi
+system_runMode local
+system_ifAdmin true
+env_brew
+script_check $@
 sudo_reset
-#>
