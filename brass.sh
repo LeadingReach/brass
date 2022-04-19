@@ -4,6 +4,11 @@
 set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
 
+# this is for the log file
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3
+exec 1>/var/log/brass.log 2>&1
+
 if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
   echo "NONINTERACTIVE ENABLED"
@@ -308,9 +313,9 @@ xcode_installed_version() {
 }
 xcode_latest_version() {
   sudo_check "to check the latest version of xcode"
-  xcode_trick
-  echo $(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
-  xcode_untrick
+  xcode_trick &> /dev/null
+  /usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1
+  xcode_untrick &> /dev/null
 }
 xcode_install () {
   if [[ "${@}" == "yes" ]]; then
