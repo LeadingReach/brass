@@ -5,9 +5,10 @@ set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 # this is for the log file
+LOG_DIR="$(pwd)/brass.log"
 exec 3>&1 4>&2
 trap 'exec 2>&4 1>&3' 0 1 2 3
-exec 1>/var/log/brass.log 2>&1
+exec 1> >(tee "${LOG_DIR}") 2>&1
 
 if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
@@ -267,26 +268,12 @@ env_xcode() {
     unset XCODE_PREFIX
   fi
 
-  # Sets xcode installed version variable
-  if [[ "${@}" == "check_installed_version" ]] && [[ -n "${XCODE_PREFIX}" ]]; then
-    say "Checking for the installed version of xcode CommandLineTools\n"
-    XCODE_INSTALLED_VERSION=$(xcode_installed_version)
-    say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}\n"
-  fi
-
   if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
-    XCODE_INSTALLED_VERSION="did not check"
-  fi
-
-  # Sets xcode latest version variable
-  if [[ "${@}" == "check_latest_version" ]] && [[ -z "${XCODE_LATEST_VERSION}" ]]; then
-    echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
-    XCODE_LATEST_VERSION=$(xcode_latest_version)
-    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
+    XCODE_INSTALLED_VERSION="NA"
   fi
 
   if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
-    XCODE_LATEST_VERSION="did not check"
+    XCODE_LATEST_VERSION="NA"
   fi
 }
 xcode_trick() {
@@ -307,19 +294,27 @@ xcode_check_installed() {
   fi; XCODE_CHECK_INSTALLED="yes"
 }
 xcode_installed_version() {
+  # Sets xcode installed version variable
   if [[ -n "${XCODE_PREFIX}" ]]; then
-    pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}'
+    say "Checking for the installed version of xcode CommandLineTools\n"
+    XCODE_INSTALLED_VERSION=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}')
+    say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}\n"
   fi
 }
 xcode_latest_version() {
-  sudo_check "to check the latest version of xcode"
-  xcode_trick &> /dev/null
-  /usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1
-  xcode_untrick &> /dev/null
+  if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
+    sudo_check "to check the latest version of xcode"
+    xcode_trick &> /dev/null
+    # Sets xcode latest version variable
+    echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
+    XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
+    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
+    xcode_untrick &> /dev/null
+  fi
 }
 xcode_install () {
   if [[ "${@}" == "yes" ]]; then
-    env_xcode check_latest_version
+    xcode_latest_version
     xcode_trick
     /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
     printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
@@ -338,8 +333,8 @@ xcode_remove () {
 }
 xcode_update() {
   if [[ "${@}" == "yes" ]]; then
-    env_xcode check_installed_version
-    env_xcode check_latest_version
+    xcode_installed_version
+    xcode_latest_version
     # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
     if echo "${XCODE_INSTALLED_VERSION}" "${XCODE_LATEST_VERSION}" | awk '{exit !( $1 < $2)}'; then
       printf "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
@@ -701,6 +696,7 @@ brass_debug() {
 
 
   printf "BRASS DEBUG:
+      BRASS LOG: ${LOG_DIR}
 
     USER DEBUG:
       CONSOLE_USER=${CONSOLE_USER}
