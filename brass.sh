@@ -524,9 +524,7 @@ brew_depends() {
   env_package
 }
 brew_run() {
-  if [[ -z "${BREW_RUN}" ]]; then
-    BREW_RUN="$@"
-  fi
+  BREW_RUN="$@"
   system_user
   if [[ -z "${BREW_RUN}" ]]; then
     err "nothing specified"
@@ -680,11 +678,11 @@ notify_run() {
 #< Brass Functions
 brass_update() {
   if [[ "$@" == "yes" ]]; then
-    brassBinary=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && echo "$(pwd)/brass")
-    brassData=$(cat $brassBinary)
-    brassGet=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
-    brassDif=$(echo ${brassGet[@]} ${brassData[@]} | tr ' ' '\n' | sort | uniq -u)
-    if [[ -z $brassDif ]]; then
+    BRASS_BINARY="/usr/local/bin/brass"
+    BRASS_DATA=$(cat $brassBinary)
+    BRASS_GET=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
+    BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
+    if [[ -z "${BRASS_DIF}" ]]; then
       printf "brass is up to date.\n"
     else
       printf "brass upgrade available. Upgrading brass. Press ctrl+c to cancel. Timeout:  "; countdown
