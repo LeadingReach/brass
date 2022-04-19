@@ -47,7 +47,7 @@ script_check() {
       *) help;;
     esac
   done
-  if [ $OPTIND -eq 1 ]; then brew_user; brewDo "$@"; fi
+  if [ $OPTIND -eq 1 ]; then system_user; brewDo "$@"; fi
   sudo_reset
 }
 say() {
