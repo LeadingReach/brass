@@ -413,7 +413,7 @@ brewRun() {
       /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
     fi
   else
-    /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}" $@
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
   fi
 }
 brew_check() {
