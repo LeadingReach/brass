@@ -40,7 +40,6 @@ script_check() {
     esac
   done
   if [ $OPTIND -eq 1 ]; then system_user; brewDo "$@"; fi
-  sudo_reset
 }
 say() {
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
@@ -135,7 +134,6 @@ run_config () {
     fi
     "${run}" "${str}"
   done < <(echo "${cfg}")''
-  sudo_reset
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
@@ -190,6 +188,10 @@ env_local() {
     BREW_CASKROOM="/Users/${SYSTEM_USER}/.homebrew/Caskroom"
   fi
 }
+env_user() {
+  ENV_USER=$(user_command printenv)
+  echo "${ENV_USER}"
+}
 system_verbose(){
   if [[ "${@}" == "yes" ]] || [[ -z "${@}" ]]; then
     SYSTEM_VEROBSE="yes"
@@ -233,6 +235,11 @@ system_user() {
     if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
       sudo_check "to run brew as another user"
     fi
+  fi
+
+  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
+    say "updaing user enviroment variables"
+    export "${ENV_USER}"
   fi
 }
 system_ifAdmin() {
