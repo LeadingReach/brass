@@ -679,7 +679,7 @@ notify_run() {
 brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
-    BRASS_DATA=$(cat $brassBinary)
+    BRASS_DATA=$(cat "${BRASS_BINARY}")
     BRASS_GET=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
     BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${BRASS_DIF}" ]]; then
