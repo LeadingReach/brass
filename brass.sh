@@ -1,12 +1,5 @@
 #!/bin/bash
 #< System requirements
-# Checks to see if bash is being used
-if [ -z "${BASH_VERSION:-}" ]
-then
-  echo "Bash is required to interpret this script."
-  exit 1
-fi
-
 # This allows err funtion to exit script whith in a subshell
 set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
@@ -15,7 +8,6 @@ if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
   echo "NONINTERACTIVE ENABLED"
 fi
-
 #>
 
 #< Script Functions
@@ -61,29 +53,12 @@ err() {
   sudo_reset
   exit 77
 }
-userDo() {
-  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
-      "$@"
-  else
-    sudo_check "to run as another user"
-    /usr/bin/sudo -i -u ${SYSTEM_USER} "$@"
-  fi
-}
 user_command() {
   if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
       $@
   else
     sudo_check "to run as another user"
     /usr/bin/sudo -i -u ${SYSTEM_USER} $@
-  fi
-}
-user_brewCommand() {
-  env_brew
-  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
-      $BREW_BIN $@
-  else
-    sudo_check "to run as another user"
-    /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN $@
   fi
 }
 countdown() {
@@ -112,7 +87,7 @@ sudo_check() {
   # Checks to see if sudo binary is executable
   if [[ ! -x "/usr/bin/sudo" ]]
   then
-    err "sudo binary not executable"
+    err "sudo binary is missing or not executable"
   fi
 
   # Checks to see if script has sudo priviledges
@@ -122,14 +97,14 @@ sudo_check() {
 }
 sudo_disable() {
   system_user
-  dirSudo=("SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
-  for str in ${dirSudo[@]}; do
+  SUDO_DIR=("SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
+  for str in ${SUDO_DIR[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
-      str_binary=$(echo "$str" | awk -F"/" '{print $(NF)}')
-      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run ${str_binary} as root without a password\n"
+      STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
+      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run ${STR_BINARY} as root without a password\n"
       echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
     else
-      say "etc/sudoers already allows ${SYSTEM_USER} to run $str as root without a password\n"
+      say "etc/sudoers already allows brass to run $str as root without a password\n"
     fi
   done
 }
@@ -263,7 +238,7 @@ system_user() {
 system_ifAdmin() {
   if [[ "$@" == "yes" ]]; then
     SYSTEM_IFADMIN="yes"
-    if [[ ${USER_CLASS} == "admin" ]]; then
+    if [[ "${USER_CLASS}" == "admin" ]]; then
       say "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
     fi
@@ -280,19 +255,22 @@ env_xcode() {
     unset XCODE_PREFIX
   fi
 
+  # Sets xcode installed version variable
   if [[ "${@}" == "check_installed_version" ]] && [[ -n "${XCODE_PREFIX}" ]]; then
     say "Checking for the installed version of xcode CommandLineTools\n"
     XCODE_INSTALLED_VERSION=$(xcode_installed_version)
     say "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}\n"
   fi
-  if [[ "${@}" == "check_latest_version" ]]; then
-    echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
-    XCODE_LATEST_VERSION=$(xcode_latest_version)
-    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
-  fi
 
   if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
     XCODE_INSTALLED_VERSION="did not check"
+  fi
+
+  # Sets xcode latest version variable
+  if [[ "${@}" == "check_latest_version" ]] && [[ -z "${XCODE_LATEST_VERSION}" ]]; then
+    echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
+    XCODE_LATEST_VERSION=$(xcode_latest_version)
+    say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
   fi
 
   if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
@@ -353,7 +331,6 @@ xcode_update() {
     # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
     if echo "${XCODE_INSTALLED_VERSION}" "${XCODE_LATEST_VERSION}" | awk '{exit !( $1 < $2)}'; then
       printf "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
-      xcode_remove yes
       xcode_install yes
     else
       printf "xcode is up to date.\n"
@@ -408,7 +385,7 @@ brewDo() {
 brewRun() {
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
     if [ "$EUID" -ne 0 ] ;then
-      "${BREW_BIN}" $@
+      "${BREW_BIN}"/$@
     else
       /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
     fi
@@ -432,7 +409,7 @@ brew_check() {
   if [[ -d "${BREW_PREFIX}" ]] && [[ "${BREW_USER}" != "${SYSTEM_USER}" ]]; then
     echo "${SYSTEM_USER} does not own ${BREW_PREFIX}"
     printf "${SYSTEM_USER} will take ownership of ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
-    userDo /usr/bin/sudo /usr/sbin/chown -R ${SYSTEM_USER}: ${BREW_PREFIX}
+    user_command /usr/bin/sudo /usr/sbin/chown -R ${SYSTEM_USER}: ${BREW_PREFIX}
   fi
 }
 brew_install() {
@@ -449,8 +426,8 @@ brew_install() {
       fi
     else
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
-        userDo mkdir -p "${BREW_PREFIX}"
-        userDo curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
+        user_command mkdir -p "${BREW_PREFIX}"
+        user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
       else
         brew_system_install
       fi
@@ -739,7 +716,7 @@ brass_debug() {
 }
 #>
 
-
+#< Script Logic
 if [[ -z $@ ]]; then
   if [[ ! -x /usr/local/bin/brass ]]; then
     printf "Installing brass to /usr/local/bin/brass Press ctrl+c to cancel. Timeout:  "; countdown
@@ -762,3 +739,4 @@ system_ifAdmin true
 env_brew
 script_check $@
 sudo_reset
+#>
