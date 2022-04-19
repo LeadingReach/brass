@@ -410,7 +410,7 @@ brewRun() {
     if [ "$EUID" -ne 0 ] ;then
       "${BREW_BIN}" $@
     else
-      /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}" $@
+      /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
     fi
   else
     /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}" $@
