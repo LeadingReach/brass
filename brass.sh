@@ -566,7 +566,7 @@ package_install() {
   brew_check
   cd /Users/"${SYSTEM_USER}"/
   env_package
-  brewDo install $PACKAGE_INSTALL -f
+  brewDo install $PACKAGE_INSTALL
   env_package
 }
 package_uninstall() {
