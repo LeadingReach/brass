@@ -357,16 +357,28 @@ env_brew() {
   if [[ "${SYSTEM_RUNMODE}" == "system" ]]; then
     env_system
     if [[ -x "${BREW_BINARY}" ]]; then
-      say "System Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+      if [[ -z "${SYSTEM_MODE}" ]]; then
+        say "System Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+        SYSTEM_MODE="System"
+      fi
     else
-      say "System Mode Enabled\n"
+      if [[ -z "${SYSTEM_MODE}" ]]; then
+        say "System Mode Enabled\n"
+        SYSTEM_MODE="System"
+      fi
     fi
   else
     env_local
     if [[ -x "${BREW_BINARY}" ]]; then
-      say "User Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+      if [[ -z "${SYSTEM_MODE}" ]]; then
+        say "User Mode Enabled: Brew binary is located at $BREW_BINARY\n"
+        SYSTEM_MODE="User"
+      fi
     else
-      say "User Mode Enabled\n"
+      if [[ -z "${SYSTEM_MODE}" ]]; then
+        say "User Mode Enabled\n"
+        SYSTEM_MODE="User"
+      fi
     fi
   fi
   DIR_BREW=("${BREW_BINARY}" "${BREW_PREFIX}" "${BREW_REPO}" "${BREW_CELLAR}" "${BREW_CASKROOM}" "${BREW_UESR}")
@@ -554,7 +566,7 @@ fi)
 
 #< Package Functions
 env_package() {
-  say "disabled\n"
+  echo"disabled\n" &> /dev/null
 #  if [[ -z $(ls "${BREW_PREFIX}/bin" | grep "${PACKAGE}") ]]; then
 #    PACKAGE_DIR="$brew_caskroom/$PACKAGE"
 #    PACKAGE_NAME=$(brewDo info "${PACKAGE}" | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
@@ -583,8 +595,10 @@ package_install() {
   cd /Users/"${SYSTEM_USER}"/
   env_package
   if [[ -z $(brewDo list | grep $PACKAGE_INSTALL) ]]; then
+    say "Installing $PACKAGE_INSTALL\n"
     brewDo install $PACKAGE_INSTALL -f
   else
+    say "Updating $PACKAGE_INSTALL\n"
     brewDo upgrade $PACKAGE_INSTALL
   fi
   env_package
