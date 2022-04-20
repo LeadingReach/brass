@@ -243,10 +243,10 @@ system_user() {
     fi
   fi
 
-  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
-    say "updaing user enviroment variables"
-    export "${ENV_USER}"
-  fi
+#  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
+#    say "updaing user enviroment variables"
+#    export "${ENV_USER}"
+#  fi
 }
 system_ifAdmin() {
   if [[ "$@" == "yes" ]]; then
@@ -264,17 +264,17 @@ system_ifAdmin() {
 #< Xcode Functions
 env_xcode() {
   XCODE_PREFIX="/Library/Developer/CommandLineTools"
-  if [[ ! -d "${XCODE_PREFIX}" ]]; then
-    unset XCODE_PREFIX
-  fi
-
-  if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
-    XCODE_INSTALLED_VERSION="NA"
-  fi
-
-  if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
-    XCODE_LATEST_VERSION="NA"
-  fi
+#  if [[ ! -d "${XCODE_PREFIX}" ]]; then
+#    unset XCODE_PREFIX
+#  fi
+#
+#  if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
+#    XCODE_INSTALLED_VERSION="NA"
+#  fi
+#
+#  if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
+#    XCODE_LATEST_VERSION="NA"
+#  fi
 }
 xcode_trick() {
   # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
@@ -314,6 +314,7 @@ xcode_latest_version() {
 }
 xcode_install () {
   if [[ "${@}" == "yes" ]]; then
+    env_xcode
     xcode_latest_version
     xcode_trick
     /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
@@ -333,6 +334,7 @@ xcode_remove () {
 }
 xcode_update() {
   if [[ "${@}" == "yes" ]]; then
+    env_xcode
     xcode_installed_version
     xcode_latest_version
     # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
