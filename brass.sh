@@ -309,7 +309,7 @@ xcode_latest_version() {
     xcode_trick &> /dev/null
     # Sets xcode latest version variable
     echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
-    #XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
+    XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
     say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
     xcode_untrick &> /dev/null
   fi
