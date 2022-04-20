@@ -142,6 +142,7 @@ run_config () {
     fi
     "${run}" "${str}"
   done < <(echo "${cfg}")''
+  sudo_reset
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
@@ -757,6 +758,7 @@ if [[ -z $@ ]]; then
     brass_update yes
   fi
   printf "use brass -h for more infomation.\n"
+  sudo_reset
   exit
 fi
 # Checks to see if xcode CommandLineTools is installed
