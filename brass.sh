@@ -5,10 +5,10 @@ set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 # this is for the log file
-LOG_DIR="$(pwd)/brass.log"
-exec 3>&1 4>&2
-trap 'exec 2>&4 1>&3' 0 1 2 3
-exec 1> >(tee "${LOG_DIR}") 2>&1
+#LOG_DIR="$(pwd)/brass.log"
+#exec 3>&1 4>&2
+#trap 'exec 2>&4 1>&3' 0 1 2 3
+#exec 1> >(tee "${LOG_DIR}") 2>&1
 
 if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
