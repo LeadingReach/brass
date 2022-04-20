@@ -135,6 +135,8 @@ run_config () {
       str=$(echo "${line}" | awk -F'=' '{print $2}')
     elif [[ "${run}" == user* ]]; then
       str=$(echo "${line}" | awk -F'user_command=' '{print $2}' | tr -d '"')
+    elif [[ "${run}" == brew_run* ]]; then
+      str=$(echo "${line}" | awk -F'brew_run=' '{print $2}' | sed -e 's/^"//' -e 's/"$//')
     else
       str=$(echo "${line}" | awk -F'=' '{print $2}' | tr -d '"')
     fi
@@ -307,7 +309,7 @@ xcode_latest_version() {
     xcode_trick &> /dev/null
     # Sets xcode latest version variable
     echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
-    XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
+    #XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
     say "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
     xcode_untrick &> /dev/null
   fi
@@ -393,15 +395,29 @@ brewDo() {
 }
 brewRun() {
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
+    echo "HERE $BREW_BINARY $BREW_PREFIX"
     if [ "$EUID" -ne 0 ] ;then
-      "${BREW_BIN}"/$@
+      eval "$BREW_PREFIX/bin/$@"
     else
-      /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
+      eval "/usr/bin/sudo -i -u $SYSTEM_USER $BREW_PREFIX/bin/$@"
     fi
   else
-    /usr/bin/sudo -i -u "${SYSTEM_USER}" "${BREW_BIN}"/$@
+    eval "/usr/bin/sudo -i -u $SYSTEM_USER $BREW_PREFIX/bin/$@"
   fi
 }
+#brewRun() {
+#  if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
+#    if [ "$EUID" -ne 0 ] ;then
+#      "${BREW_BIN}"/$@
+#    else
+#      echo "HERE $BREW_BIN"
+#      /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
+#      exit 77
+#    fi
+#  else
+#    /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
+#  fi
+#}
 brew_check() {
   # Update brew enviroment variables
   env_brew
@@ -537,28 +553,27 @@ fi)
 
 #< Package Functions
 env_package() {
-  if [[ -z $(ls "${BREW_PREFIX}/bin" | grep "${PACKAGE}") ]]; then
-    PACKAGE_DIR="$brew_caskroom/$PACKAGE"
-    PACKAGE_NAME=$(brewDo info "${PACKAGE}" | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
-    PACKAGE_LINK="/Applications/${PACKAGE_NAME}"
-    #PACKAGE_OWNDER=$(stat "${PACKAGE_LINK}" | awk '{print $5}')
-  else
-    PACKAGED_DIR="${BREW_PREFIX}/bin/${PACKAGE}"
-    PACKAGE_NAME="${PACKAGE}"
-    #PACKAGE_OWNDER=$(stat "${PACKAGE_DIR}" | awk '{print $5}')
-    PACKAGE_LINK="${PACKAGE_DIR}"
-  fi
-
-  if [[ -n "${PACKAGE_LINK}" ]]; then
-    PACKAGE_INSTALLED="yes"
-  else
-    PACKAGE_INSTALLED="false"
-  fi
+  say "disabled\n"
+#  if [[ -z $(ls "${BREW_PREFIX}/bin" | grep "${PACKAGE}") ]]; then
+#    PACKAGE_DIR="$brew_caskroom/$PACKAGE"
+#    PACKAGE_NAME=$(brewDo info "${PACKAGE}" | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
+#    PACKAGE_LINK="/Applications/${PACKAGE_NAME}"
+#    #PACKAGE_OWNDER=$(stat "${PACKAGE_LINK}" | awk '{print $5}')
+#  else
+#    PACKAGED_DIR="${BREW_PREFIX}/bin/${PACKAGE}"
+#    PACKAGE_NAME="${PACKAGE}"
+#    #PACKAGE_OWNDER=$(stat "${PACKAGE_DIR}" | awk '{print $5}')
+#    PACKAGE_LINK="${PACKAGE_DIR}"
+#  fi
+#
+#  if [[ -n "${PACKAGE_LINK}" ]]; then
+#    PACKAGE_INSTALLED="yes"
+#  else
+#    PACKAGE_INSTALLED="false"
+#  fi
 }
 package_install() {
-  if [[ -z "${PACKAGE_INSTALL}" ]]; then
-    PACKAGE_INSTALL="$@"
-  fi
+  PACKAGE_INSTALL="$@"
   system_user
   if [[ -z "${PACKAGE_INSTALL}" ]]; then
     err "no package specified"
@@ -566,7 +581,11 @@ package_install() {
   brew_check
   cd /Users/"${SYSTEM_USER}"/
   env_package
-  brewDo install $PACKAGE_INSTALL
+  if [[ -z $(brewDo list | grep $PACKAGE_INSTALL) ]]; then
+    brewDo install $PACKAGE_INSTALL -f
+  else
+    brewDo upgrade $PACKAGE_INSTALL
+  fi
   env_package
 }
 package_uninstall() {
