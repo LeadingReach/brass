@@ -18,7 +18,7 @@ fi
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlabqhyg' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhyg' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       j) token="$OPTARG";;
@@ -37,6 +37,7 @@ script_check() {
       n) noWarnning="1";;
       l) system_force yes;;
       a) system_ifAdmin yes;;
+      e) brewDo "$OPTARG";;
       b) brass_debug;;
       q) brass_update yes;;
       g) flags;;
