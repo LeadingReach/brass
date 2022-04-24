@@ -115,7 +115,7 @@ sudo_disable() {
 }
 sudo_reset() {
   say "removing brass sudoers entries\n"
-  sed -i '' '/#brass/d' /etc/sudoers
+  sed -i '' '/#brass/d' /etc/sudoers &> /dev/null
 }
 run_config () {
   if [[ "${file}" == "yes" ]]; then
@@ -626,6 +626,7 @@ process_kill() {
   fi
   if [[ "${PROCESS_KILL}" != "no" ]]; then
     system_user
+    say "killing ${PROCESS_KILL} process"
     pkill -9 "${PROCESS_KILL}"
   fi
 }
