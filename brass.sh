@@ -27,7 +27,7 @@ script_check() {
       Z) system_runMode system; env_brew;;
       v) system_verbose yes;;
       x) xcode_update yes;;
-      s) SYSTEM_USER="$OPTARG";;
+      s) if [[ -z "${SYSTEM_USER}" ]]; then SYSTEM_USER="$OPTARG"; fi;;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
@@ -35,8 +35,8 @@ script_check() {
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
       n) noWarnning="1";;
-      l) SYSTEM_FORCE yes;;
-      a) SYSTEM_IFADMIN yes; shift;;
+      l) system_force yes;;
+      a) system_ifAdmin yes;;
       b) brass_debug;;
       q) brass_update yes;;
       g) flags;;
@@ -252,11 +252,12 @@ system_user() {
 #  fi
 }
 system_ifAdmin() {
-  if [[ "$@" == "yes" ]]; then
+  if [[ "$1" == "yes" ]]; then
     SYSTEM_IFADMIN="yes"
     if [[ "${USER_CLASS}" == "admin" ]]; then
       say "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
+      env_brew
     fi
   else
     SYSTEM_IFADMIN="false"
@@ -433,12 +434,13 @@ brewRun() {
 #}
 brew_check() {
   # Update brew enviroment variables
+  system_user
   env_brew
 
   # Check to see if brew is installed
   if [[ -z "${BREW_BINARY}" ]]; then
     BREW_STATUS="not installed"
-    printf "brew directory not defined\nInstalling brew. Press ctrl+c to cancel. Timeout:  "; countdown
+    printf "brew not fount at ${BREW_PREFIX}\nInstalling brew. Press ctrl+c to cancel. Timeout:  "; countdown
     brew_install yes
     env_brew
   fi
@@ -781,7 +783,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-system_ifAdmin true
+system_ifAdmin yes
 env_brew
 script_check $@
 sudo_reset
