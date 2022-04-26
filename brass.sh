@@ -536,7 +536,7 @@ brew_depends() {
   brew_check
   env_brew
   system_user
-  if [[ -z $(brewDo list | grep $BREW_DEPENDS) ]]; then
+  if [[ -z $(brewDo list | grep -w "$BREW_DEPENDS") ]]; then
     package_install "${BREW_DEPENDS}"
   fi
   env_package
@@ -597,7 +597,7 @@ package_install() {
   brew_check
   cd /Users/"${SYSTEM_USER}"/
   env_package
-  if [[ -z $(brewDo list | grep $PACKAGE_INSTALL) ]]; then
+  if [[ -z $(brewDo list | grep -w "$PACKAGE_INSTALL") ]]; then
     say "Installing $PACKAGE_INSTALL\n"
     brewDo install $PACKAGE_INSTALL -f
   else
