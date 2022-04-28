@@ -1,14 +1,37 @@
 #!/bin/bash
+
+#< Enviroment variables
+# consoleUser - Get current logged in user
+CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
+
+# userClass - Get if current logged in user is admin or standard
+USER_CLASS=$(if groups "${CONSOLE_USER}" | grep -q -w admin; then
+  echo "admin"
+  else
+  echo "standard"
+fi)
+#>
+
 #< System requirements
 # This allows err funtion to exit script whith in a subshell
 set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 # this is for the log file
-#LOG_DIR="$(pwd)/brass.log"
-#exec 3>&1 4>&2
-#trap 'exec 2>&4 1>&3' 0 1 2 3
-#exec 1> >(tee "${LOG_DIR}") 2>&1
+# Checks to see if script has sudo priviledges
+if [ "$EUID" -ne 0 ];then
+  LOG_FILE="/Users/${CONSOLE_USER}/.brass.log"
+else
+  LOG_FILE="/var/log/brass.log"
+fi
+
+if [[ -f "${LOG_FILE}" ]]; then
+  mv "${LOG_FILE}" "${LOG_FILE}.1"
+fi
+
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3
+exec 1> >(tee "${LOG_FILE}") 2>&1
 
 if [[ -n "${CI-}" ]]; then
   SYSTEM_FORCE="true"
@@ -101,6 +124,7 @@ sudo_check() {
   err "sudo priviledges are reqired $@"
   fi
 }
+
 sudo_disable() {
   system_user
   SUDO_DIR=("SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
@@ -269,30 +293,19 @@ system_ifAdmin() {
 #< Xcode Functions
 env_xcode() {
   XCODE_PREFIX="/Library/Developer/CommandLineTools"
-#  if [[ ! -d "${XCODE_PREFIX}" ]]; then
-#    unset XCODE_PREFIX
-#  fi
-#
-#  if [[ -z "${XCODE_INSTALLED_VERSION}" ]]; then
-#    XCODE_INSTALLED_VERSION="NA"
-#  fi
-#
-#  if [[ -z "${XCODE_LATEST_VERSION}" ]]; then
-#    XCODE_LATEST_VERSION="NA"
-#  fi
 }
 xcode_trick() {
-  # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
-  /usr/bin/sudo /usr/bin/touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  /usr/bin/sudo touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
 }
 xcode_untrick() {
   /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
 }
 xcode_check_installed() {
   if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then env_xcode;
-    if [[ ! -d "${XCODE_PREFIX}" ]]; then XCODE_INSTALLED="flase";
+    if [[ ! -x "${XCODE_PREFIX}/usr/bin/git" ]]; then XCODE_INSTALLED="flase";
       printf "Xcode CommandLineTools directory not defined\n"
       printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
+      if [[ -d "${XCODE_PREFIX}" ]]; then rm -r "${XCODE_PREFIX}"; fi
       xcode_install yes
     else XCODE_INSTALLED="yes";
     fi; env_xcode
@@ -553,18 +566,6 @@ brew_run() {
   brewRun "${BREW_RUN}"
   env_package
 }
-#>
-
-#< Enviroment variables
-# consoleUser - Get current logged in user
-CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
-
-# userClass - Get if current logged in user is admin or standard
-USER_CLASS=$(if groups "${CONSOLE_USER}" | grep -q -w admin; then
-  echo "admin"
-  else
-  echo "standard"
-fi)
 #>
 
 #< Package Functions
