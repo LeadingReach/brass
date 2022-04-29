@@ -19,24 +19,24 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 # this is for the log file
 # Checks to see if script has sudo priviledges
-if [ "$EUID" -ne 0 ];then
-  LOG_FILE="/Users/${CONSOLE_USER}/.brass.log"
-else
-  LOG_FILE="/var/log/brass.log"
-fi
-
-if [[ -f "${LOG_FILE}" ]]; then
-  mv "${LOG_FILE}" "${LOG_FILE}.1"
-fi
-
-exec 3>&1 4>&2
-trap 'exec 2>&4 1>&3' 0 1 2 3
-exec 1> >(tee "${LOG_FILE}") 2>&1
-
-if [[ -n "${CI-}" ]]; then
-  SYSTEM_FORCE="true"
-  echo "NONINTERACTIVE ENABLED"
-fi
+#if [ "$EUID" -ne 0 ];then
+#  LOG_FILE="/Users/${CONSOLE_USER}/.brass.log"
+#else
+#  LOG_FILE="/var/log/brass.log"
+#fi
+#
+#if [[ -f "${LOG_FILE}" ]]; then
+#  mv "${LOG_FILE}" "${LOG_FILE}.1"
+#fi
+#
+#exec 3>&1 4>&2
+#trap 'exec 2>&4 1>&3' 0 1 2 3
+#exec 1> >(tee "${LOG_FILE}") 2>&1
+#
+#if [[ -n "${CI-}" ]]; then
+#  SYSTEM_FORCE="true"
+#  echo "NONINTERACTIVE ENABLED"
+#fi
 #>
 
 #< Script Functions
@@ -50,7 +50,7 @@ script_check() {
       Z) system_runMode system; env_brew;;
       v) system_verbose yes;;
       x) xcode_update yes;;
-      s) if [[ -z "${SYSTEM_USER}" ]]; then SYSTEM_USER="$OPTARG"; fi;;
+      s) SYSTEM_USER="$OPTARG";;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
@@ -124,7 +124,6 @@ sudo_check() {
   err "sudo priviledges are reqired $@"
   fi
 }
-
 sudo_disable() {
   system_user
   SUDO_DIR=("SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
@@ -411,6 +410,7 @@ env_brew() {
 
 }
 brewDo() {
+  env_brew
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
     if [ "$EUID" -ne 0 ] ;then
       "${BREW_BINARY}" "$@"
@@ -422,6 +422,7 @@ brewDo() {
   fi
 }
 brewRun() {
+  env_brew
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
     echo "HERE $BREW_BINARY $BREW_PREFIX"
     if [ "$EUID" -ne 0 ] ;then
@@ -785,8 +786,6 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-system_ifAdmin yes
-env_brew
 script_check $@
 sudo_reset
 #>
