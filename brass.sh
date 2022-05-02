@@ -50,7 +50,7 @@ script_check() {
       Z) system_runMode system; env_brew;;
       v) system_verbose yes;;
       x) xcode_update yes;;
-      s) SYSTEM_USER="$OPTARG";;
+      s) system_user "$OPTARG";;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
@@ -250,25 +250,35 @@ system_force() {
 }
 system_user() {
   # Checks to see if a user has been specified
-  if [[ -z "${SYSTEM_USER}" ]]; then
-    if [[ -z "${@}" ]]; then
+  if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
+    if [[ "${@}" ]]; then
+      say "Continuing as ${@}\n"
+      SYSTEM_USER="${@}"
+    elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
       say "No user specified. Continuing as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
-    else
-      SYSTEM_USER="${@}"
+    elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
+      say "System user is: ${SYSTEM_USER}\n"
     fi
-    # Checks to see if the specified user is present
-    if id "${SYSTEM_USER}" &>/dev/null; then
-      say "System user found: ${SYSTEM_USER}\n"
-    else
-      err "${SYSTEM_USER} not found"
-    fi
-
-    # Checks to see if sudo priviledges are required
-    if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
-      sudo_check "to run brew as another user"
-    fi
+  elif [[ -z "${SYSTEM_USER}" ]]; then
+    say "No user specified. Continuing as ${CONSOLE_USER}\n"
+    SYSTEM_USER="${CONSOLE_USER}"
+  else
+    say "System user is: ${SYSTEM_USER}\n"
   fi
+
+  # Checks to see if the specified user is present
+  if id "${SYSTEM_USER}" &>/dev/null; then
+    say "System user found: ${SYSTEM_USER}\n"
+  else
+    err "${SYSTEM_USER} not found"
+  fi
+
+  # Checks to see if sudo priviledges are required
+  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+    sudo_check "to run brew as another user"
+  fi
+
 
 #  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
 #    say "updaing user enviroment variables"
@@ -277,8 +287,8 @@ system_user() {
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
-    SYSTEM_IFADMIN="yes"
     if [[ "${USER_CLASS}" == "admin" ]]; then
+      SYSTEM_IFADMIN="yes"
       say "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
       env_brew
@@ -333,6 +343,7 @@ xcode_install () {
   if [[ "${@}" == "yes" ]]; then
     env_xcode
     xcode_latest_version
+    xcode_remove yes
     xcode_trick
     /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
     printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
@@ -723,6 +734,7 @@ brass_upgrade() {
   say "install complete.\n"
 }
 brass_debug() {
+  env_brew
   if [[ "${BREW_STATUS}" == "not installed" ]]; then
     BREW_DEBUG="BREW_STATUS=${BREW_STATUS}"
   else
