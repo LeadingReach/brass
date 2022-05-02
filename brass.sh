@@ -126,7 +126,7 @@ sudo_check() {
 }
 sudo_disable() {
   system_user
-  SUDO_DIR=("SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
+  SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
   for str in ${SUDO_DIR[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
       STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
