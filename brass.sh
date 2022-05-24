@@ -279,6 +279,11 @@ system_user() {
     sudo_check "to run brew as another user"
   fi
 
+  # Checks to see if chache dir is set
+  BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
+  if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
+    sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
+  fi
 
 #  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
 #    say "updaing user enviroment variables"
