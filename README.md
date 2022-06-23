@@ -15,7 +15,8 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
 
 ## README.MD is out of date. Will update soon.
 
-## Usage
+## Basic Usage
+brass can act as a 1 to 1 stand in for brew. Use any brew command after brass and it will run brew in a user specific prefix.
 ```bash
   admin@mac$ brass install sl
 
@@ -115,44 +116,6 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
   # Install a package as otheradmin unless console user is an admin with the default homebrew prefix,
   # with no interaction, no warning, and display debug information.
     admin@mac$ sudo brass -Znlas otheradmin -p sl -b
-
-
-  # You can configure custom text to be displayed in a pop up window at any stage of the script
-    admin@mac$ brass -w Starting brew update. -u -w Brew update complete.
-
-    #########BRASS#########
-    #Starting brew update.#
-    #######################
-
-    brass user: carlpetry
-    System user found: carlpetry
-    User Mode Enabled: Brew binary is located at /Users/carlpetry/.homebrew/bin/brew
-    brewUpdate: Enabled.
-    Updating brew
-    Already up-to-date.
-
-    #########BRASS#########
-    #Brew update complete##
-    #######################
-
-
-  # Install a package as otheradmin unless console user is an admin with the default homebrew prefix,
-  # with no interaction, no warning, and display debug information
-  # while showing custom message before and after completion.
-    admin@mac$ brass -Znlas otheradmin -w Installing sl. -p sl -b -w done.
-
-    System user found: otheradmin
-    System Mode Enabled: Brew binary is located at /opt/homebrew/bin/brew
-
-    #########BRASS#########
-    ### Installing sl. ####
-    #######################
-
-    Installing sl
-
-    #########BRASS#########
-    ######## done #######*#
-    #######################
 ```
 
 ## flags
@@ -244,7 +207,7 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
       user@mac$ sudo brass -s admin -d sl
 
 
-  -t: Renstalls a brew package
+  -t: Reinstalls a brew package
 
       # This will reinstall the brew package sl
       admin@mac$ brass -tp sl
@@ -256,19 +219,6 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
 
       # This will run brew as admin user and then reinstall package sl
       user@mac$ sudo brass -s admin -utp sl
-
-  -f: Force installs a brew package
-
-      # This will force install the brew package sl
-      admin@mac$ brass -f sl
-
-
-      # This will update brew and then force install the package sl
-      admin@mac$ brass -uf sl
-
-
-      # This will run brew as admin user and then force install package sl
-      user@mac$ sudo brass -s admin -uf sl
 
 
   -i: Installs brew
@@ -318,14 +268,6 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
 
       # This will reinstall brew as the admin user with no warning and no interaction
       user@mac$ sudo brass -nlz admin -s
-
-  -w: Displays GUI notification.
-
-      # This will warn the user that brew is going to update with a popup window
-      admin@mac$ brass -w Updating brew -u
-
-      # This will warn the user that brew is going to reinstall sl and then notify the user hen it is complete.
-      admin@mac$ brass -w reinstalling sl. This may take some time. -tp sl -w sl has been installed. Train away.
 
 
   -b: Shows debug information.
@@ -396,9 +338,14 @@ brassconf.yaml example:
     package:                        # to configure the brew package
       install: package | blank/no   # the package you would like to configure. will install the package if not found unless you use the delete function.
       delete: package | blank/no    # will delete package if present.
-      killProcess: process | blank  # this will kill a process with pkill -9
       reset: yes | blank/no         # will reinstall the package
       force: yes | blank/no         # will force install the package
+
+    process:
+      kill: process | blank  # this will kill a process with pkill -9
+
+    user:
+      command: whoami               # will run any bash command as the consoleUser
 
     brass:                          # to configure brass settings
       update: yes | blank/no        # update brass
@@ -406,13 +353,11 @@ brassconf.yaml example:
 
     notify:                         # shows applescript notification. This can be set anywhere in the configuation file as many times as needed.
       title: Title | blank=brass    # title of the notification
-      iconPath: /path/icon | blank  # path to icon shown in notification. Leave blank if not needed. Spaces unsupported.
       iconLink: "icon.url/icon.png" # this will download the icon to the specified path. Leave blank if not needed.
+      iconPath: /path/icon | blank  # path to icon shown in notification. Leave blank if not needed. Spaces unsupported.
       dialog: Hello world           # Dialog to be displaed in the notification.
       timeout: 10 | blank=10        # how long the notification will stay up until the script contines.
       allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
-      display: yes | blank/no       # enables/disables the notification
-
 ```
 
 
