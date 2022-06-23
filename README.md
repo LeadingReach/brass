@@ -13,8 +13,6 @@ This script has only been tested on macOS 12
 sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
 ```
 
-## README.MD is out of date. Will update soon.
-
 ## Basic Usage
 brass can act as a 1 to 1 stand in for brew. Use any brew command after brass and it will run brew in a user specific prefix.
 ```bash
