@@ -724,7 +724,7 @@ brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
     BRASS_DATA=$(cat "${BRASS_BINARY}")
-    BRASS_GET=$(curl -fsSL $"{BRASS_URL}")
+    BRASS_GET=$(curl -fsSL "${BRASS_URL}")
     BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${BRASS_DIF}" ]]; then
       printf "brass is up to date.\n"
