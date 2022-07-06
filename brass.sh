@@ -751,7 +751,7 @@ brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
     BRASS_DATA=$(cat "${BRASS_BINARY}")
-    BRASS_GET=$(curl -fsSL "${BRASS_URL}")
+    BRASS_GET=$(curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}")
     BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${BRASS_DIF}" ]]; then
       printf "brass is up to date.\n"
@@ -763,7 +763,7 @@ brass_update() {
 }
 brass_upgrade() {
   sudo_check "to install brass"
-  curl -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
+  curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
 }
