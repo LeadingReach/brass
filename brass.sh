@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #< Enviroment variables
+# brass_url - brass script URL
+BRASS_URL="https://https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"
 # consoleUser - Get current logged in user
 CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
 
@@ -41,11 +43,10 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhygm:' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhyg' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       j) token="$OPTARG";;
-      t) secret="$OPTARG"; token=$(cat "${secret}");;
       g) cfg="$OPTARG"; url="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
       Z) system_runMode system; env_brew;;
@@ -58,7 +59,6 @@ script_check() {
       z) brew_reset yes;;
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
-      m) MASTERLIST="$OPTARG"; package_update $MASTERLIST;;
       n) noWarnning="1";;
       l) system_force yes;;
       a) system_ifAdmin yes;;
@@ -187,11 +187,6 @@ parse_yaml() {
       }
    }'
 }
-token_get() {
-  if [[ -z "${token}" ]] && [[ -f "/Library/brass/secret" ]]; then
-    token="$(cat /Library/brass/secret)"
-  fi
-}
 #>
 
 #< System Functions
@@ -256,51 +251,46 @@ system_force() {
   fi
 }
 system_user() {
-  # Skips function if user is already specified
-  if [[ "${SYSTEM_USER_RAN}" != 1 ]]; then
-    # Checks to see if a user has been specified
-    if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
-      if [[ "${@}" ]]; then
-        say "Continuing as ${@}\n"
-        SYSTEM_USER="${@}"
-      elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
-        say "No user specified. Continuing as ${CONSOLE_USER}\n"
-        SYSTEM_USER="${CONSOLE_USER}"
-      elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
-        say "System user is: ${SYSTEM_USER}\n"
-      fi
-    elif [[ -z "${SYSTEM_USER}" ]]; then
+  # Checks to see if a user has been specified
+  if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
+    if [[ "${@}" ]]; then
+      say "Continuing as ${@}\n"
+      SYSTEM_USER="${@}"
+    elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
       say "No user specified. Continuing as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
-    else
+    elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
       say "System user is: ${SYSTEM_USER}\n"
     fi
-
-    # Checks to see if the specified user is present
-    if id "${SYSTEM_USER}" &>/dev/null; then
-      say "System user found: ${SYSTEM_USER}\n"
-    else
-      err "${SYSTEM_USER} not found"
-    fi
-
-    # Checks to see if sudo priviledges are required
-    if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
-      sudo_check "to run brew as another user"
-    fi
-
-    # Checks to see if chache dir is set
-    BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
-    if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
-      sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
-    fi
-
-  #  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
-  #    say "updaing user enviroment variables"
-  #    export "${ENV_USER}"
-  #  fi
-    SYSTEM_USER_RAN="1"
+  elif [[ -z "${SYSTEM_USER}" ]]; then
+    say "No user specified. Continuing as ${CONSOLE_USER}\n"
+    SYSTEM_USER="${CONSOLE_USER}"
+  else
+    say "System user is: ${SYSTEM_USER}\n"
   fi
 
+  # Checks to see if the specified user is present
+  if id "${SYSTEM_USER}" &>/dev/null; then
+    say "System user found: ${SYSTEM_USER}\n"
+  else
+    err "${SYSTEM_USER} not found"
+  fi
+
+  # Checks to see if sudo priviledges are required
+  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+    sudo_check "to run brew as another user"
+  fi
+
+  # Checks to see if chache dir is set
+  BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
+  if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
+    sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
+  fi
+
+#  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
+#    say "updaing user enviroment variables"
+#    export "${ENV_USER}"
+#  fi
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
@@ -650,21 +640,6 @@ package_uninstall() {
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
 }
-package_update() {
-  system_user
-  PACKAGE_UPDATE="$@"
-  while IFS= read -r LINE; do
-    if [[ $(/usr/local/bin/brass -vls "${SYSTEM_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-      echo "Updating ${LINE} as ${SYSTEM_USER}"
-      /usr/local/bin/brass -vls "${SYSTEM_USER}" -up "${LINE}"
-    elif [[ $(/usr/local/bin/brass -vls "${CONSOLE_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-      echo "Updating ${LINE} from ${CONSOLE_USER}"
-      #/usr/local/bin/brass -vls "${CONSOLE_USER}" -up "${LINE}"
-    else
-      echo "${LINE} not found"
-    fi
-  done < <(curl -H "Authorization: token ${token}" "${PACKAGE_UPDATE}")
-}
 #>
 
 #< Process Functions
@@ -749,7 +724,7 @@ brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
     BRASS_DATA=$(cat "${BRASS_BINARY}")
-    BRASS_GET=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
+    BRASS_GET=$(curl -fsSL $"{BRASS_URL}")
     BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${BRASS_DIF}" ]]; then
       printf "brass is up to date.\n"
@@ -761,7 +736,7 @@ brass_update() {
 }
 brass_upgrade() {
   sudo_check "to install brass"
-  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
+  curl -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
 }
@@ -830,7 +805,6 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-token_get
 script_check $@
 sudo_reset
 #>
