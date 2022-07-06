@@ -43,10 +43,11 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhyg' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhygm:' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       j) token="$OPTARG";;
+      t) secret="$OPTARG"; token=$(cat "${secret}");;
       g) cfg="$OPTARG"; url="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
       Z) system_runMode system; env_brew;;
@@ -59,6 +60,7 @@ script_check() {
       z) brew_reset yes;;
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
+      m) MASTERLIST="$OPTARG"; package_update $MASTERLIST;;
       n) noWarnning="1";;
       l) system_force yes;;
       a) system_ifAdmin yes;;
@@ -187,6 +189,11 @@ parse_yaml() {
       }
    }'
 }
+token_get() {
+  if [[ -z "${token}" ]] && [[ -f "/Library/brass/secret" ]]; then
+    token="$(cat /Library/brass/secret)"
+  fi
+}
 #>
 
 #< System Functions
@@ -251,46 +258,51 @@ system_force() {
   fi
 }
 system_user() {
-  # Checks to see if a user has been specified
-  if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
-    if [[ "${@}" ]]; then
-      say "Continuing as ${@}\n"
-      SYSTEM_USER="${@}"
-    elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
+  # Skips function if user is already specified
+  if [[ "${SYSTEM_USER_RAN}" != 1 ]]; then
+    # Checks to see if a user has been specified
+    if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
+      if [[ "${@}" ]]; then
+        say "Continuing as ${@}\n"
+        SYSTEM_USER="${@}"
+      elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
+        say "No user specified. Continuing as ${CONSOLE_USER}\n"
+        SYSTEM_USER="${CONSOLE_USER}"
+      elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
+        say "System user is: ${SYSTEM_USER}\n"
+      fi
+    elif [[ -z "${SYSTEM_USER}" ]]; then
       say "No user specified. Continuing as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
-    elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
+    else
       say "System user is: ${SYSTEM_USER}\n"
     fi
-  elif [[ -z "${SYSTEM_USER}" ]]; then
-    say "No user specified. Continuing as ${CONSOLE_USER}\n"
-    SYSTEM_USER="${CONSOLE_USER}"
-  else
-    say "System user is: ${SYSTEM_USER}\n"
+
+    # Checks to see if the specified user is present
+    if id "${SYSTEM_USER}" &>/dev/null; then
+      say "System user found: ${SYSTEM_USER}\n"
+    else
+      err "${SYSTEM_USER} not found"
+    fi
+
+    # Checks to see if sudo priviledges are required
+    if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+      sudo_check "to run brew as another user"
+    fi
+
+    # Checks to see if chache dir is set
+    BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
+    if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
+      sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
+    fi
+
+  #  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
+  #    say "updaing user enviroment variables"
+  #    export "${ENV_USER}"
+  #  fi
+    SYSTEM_USER_RAN="1"
   fi
 
-  # Checks to see if the specified user is present
-  if id "${SYSTEM_USER}" &>/dev/null; then
-    say "System user found: ${SYSTEM_USER}\n"
-  else
-    err "${SYSTEM_USER} not found"
-  fi
-
-  # Checks to see if sudo priviledges are required
-  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
-    sudo_check "to run brew as another user"
-  fi
-
-  # Checks to see if chache dir is set
-  BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
-  if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
-    sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
-  fi
-
-#  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
-#    say "updaing user enviroment variables"
-#    export "${ENV_USER}"
-#  fi
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
@@ -640,6 +652,21 @@ package_uninstall() {
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
 }
+package_update() {
+  system_user
+  PACKAGE_UPDATE="$@"
+  while IFS= read -r LINE; do
+    if [[ $(/usr/local/bin/brass -vls "${SYSTEM_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
+      echo "Updating ${LINE} as ${SYSTEM_USER}"
+      /usr/local/bin/brass -vls "${SYSTEM_USER}" -up "${LINE}"
+    elif [[ $(/usr/local/bin/brass -vls "${CONSOLE_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
+      echo "Updating ${LINE} from ${CONSOLE_USER}"
+      #/usr/local/bin/brass -vls "${CONSOLE_USER}" -up "${LINE}"
+    else
+      echo "${LINE} not found"
+    fi
+  done < <(curl -H "Authorization: token ${token}" "${PACKAGE_UPDATE}")
+}
 #>
 
 #< Process Functions
@@ -805,6 +832,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
+token_get
 script_check $@
 sudo_reset
 #>
