@@ -10,7 +10,7 @@ This script has only been tested on macOS 12
 ## Installation
 
 ```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh)"
 ```
 
 ## Basic Usage
