@@ -2,7 +2,7 @@
 
 #< Enviroment variables
 # brass_url - brass script URL
-BRASS_URL="https://https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"
+BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"
 # consoleUser - Get current logged in user
 CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
 
