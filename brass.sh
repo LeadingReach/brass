@@ -2,7 +2,7 @@
 
 #< Enviroment variables
 # brass_url - brass script URL
-BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"
+BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
 # consoleUser - Get current logged in user
 CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
 
@@ -43,11 +43,12 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhygm:' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Tf:nlae:bqhygm:' flag; do
     case "${flag}" in
       c) cfg="$OPTARG"; file="yes"; run_config; exit;;
       j) token="$OPTARG";;
       t) secret="$OPTARG"; token=$(cat "${secret}");;
+      T) BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"; brass_update yes;;
       g) cfg="$OPTARG"; url="yes"; run_config; exit;;
       C) cfg="$@"; run_config; exit;;
       Z) system_runMode system; env_brew;;
