@@ -190,7 +190,7 @@ parse_yaml() {
    }'
 }
 token_get() {
-  if [[ -z "${token}" ]] && [[ -f "/Library/brass/secret" ]]; then
+  if [[ -f "/Library/brass/secret" ]]; then
     token="$(cat /Library/brass/secret)"
   fi
 }
