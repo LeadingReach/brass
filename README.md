@@ -13,6 +13,13 @@ This script has only been tested on macOS 12
 sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh)"
 ```
 
+## Change brass versions
+You can swap between different brass branches on the fly
+```bash
+sudo brass -T "brass-dev"
+sudo brass -T "brass-local"
+```
+
 ## Basic Usage
 brass can act as a 1 to 1 stand in for brew. Use any brew command after brass and it will run brew in a user specific prefix.
 ```bash
@@ -27,10 +34,10 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
 ```
 
 ### brass can use its own flags to specify which user should run brew.
-### When using brass flags, the standard brew commands such as install and info no longer work.
+When using brass flags, the standard brew commands such as install and info no longer work. You may use the -e flag to use standard brew commands. You can use the -v flag to show verbose information
 
 ```bash    
-  user@mac$ sudo brass -s admin
+  user@mac$ sudo brass -vs admin
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -38,7 +45,15 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
 
 
   # Install a package as admin
-  user@mac$ sudo brass -s admin -p sl
+  user@mac$ sudo brass -vs admin -p sl
+
+    System user found: admin
+    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
+    Installing sl
+    done
+
+  # Install a package as admin using brew commands
+  user@mac$ sudo brass -vs admin -e install sl
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -46,7 +61,7 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
     done
 
   # Uninstall a package as admin
-  user@mac$ sudo brass -s admin -d sl
+  user@mac$ sudo brass -vs admin -d sl
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -54,7 +69,7 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
     done
 
   # Update xcode and brew, then install package sl as user admin with debug information
-  user@mac$ sudo brass -s admin -xup sl -b
+  user@mac$ sudo brass -vs admin -xup sl -b
 ```
 ### brass has the ability to manage the default homebrew prefix.
 ``` bash
@@ -358,10 +373,9 @@ brassconf.yaml example:
       allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
 ```
 ###  Brass system configuration
-A brass.yaml configuration file can be stored in either the system directory or the user specific direcotry.
+A brass.yaml configuration file can be stored in the brass system directory.
 ```
 /Library/brass
-/Users/$(whoami)/.brass
 ```
 This configuration file will apply to all brass commands by default unless over ridden by a command or package configuration file.
 #### Example brass.yaml

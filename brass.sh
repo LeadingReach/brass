@@ -2,7 +2,12 @@
 
 #< Enviroment variables
 # brass_url - brass script URL
-BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
+if [[ -f "/Library/brass/brass.yaml" ]] && [[ -n $(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}') ]]; then
+  BRASS_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch:' '{print $2}')
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
+else
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
+fi
 # consoleUser - Get current logged in user
 CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
 
@@ -43,7 +48,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Tf:nlae:bqhygMm' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:T:f:nlae:bqhygMm' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
@@ -73,7 +78,7 @@ script_check() {
     # CLI Brass Functions
       b) brass_debug;;
       q) brass_update yes;;
-      T) BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"; brass_update yes;;
+      T) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
     # CLI Help Functions
       g) flags;;
       y) yaml;;
@@ -822,6 +827,21 @@ brass_upgrade() {
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
 }
+
+system_branch() {
+  BRASS_BRANCH="$@"
+  brass_changeBranch
+}
+
+brass_changeBranch() {
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
+  BRASS_CONF_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
+  if [[ "${BRASS_BRANCH}" != "${BRASS_CONF_BRANCH}" ]]; then
+    BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" /Library/brass/brass.yaml)
+    echo "${BRASS_CONF}" > /Library/brass/brass.yaml
+  fi
+  brass_update yes
+}
 brass_debug() {
   env_brew
   if [[ "${BREW_STATUS}" == "not installed" ]]; then
@@ -874,6 +894,9 @@ if [[ -z $@ ]]; then
     sudo_check "to install brass"
     mkdir -p /usr/local/bin/
     brass_upgrade
+    if [[ ! -d /Library/brass/pkg ]]; then
+      mkdir -p /Library/brass/pkg
+    fi
     say "done.\n\n"
   else
     brass_update yes
