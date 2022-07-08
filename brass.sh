@@ -43,31 +43,38 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Tf:nlae:bqhygm:' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Tf:nlae:bqhygMm' flag; do
     case "${flag}" in
-      c) cfg="$OPTARG"; file="yes"; run_config; exit;;
-      j) token="$OPTARG";;
-      t) secret="$OPTARG"; token=$(cat "${secret}");;
-      T) BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"; brass_update yes;;
-      g) cfg="$OPTARG"; url="yes"; run_config; exit;;
-      C) cfg="$@"; run_config; exit;;
-      Z) system_runMode system; env_brew;;
-      v) system_verbose yes;;
-      x) xcode_update yes;;
-      s) system_user "$OPTARG";;
+    # YAML Config Functions
+      c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
+      C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
+      g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
+      j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
+      t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
+    # CLI System Functions
+      Z) system_runMode system; env_brew;; # Runs default system brew prefix
+      v) system_verbose yes;; # Shows verbose information
+      x) xcode_update yes;; # Checks and updates xcode if available
+      s) system_user "$OPTARG";; # Selects which user to run brew as
+      l) system_force yes;; # Force pushes through brass configuration
+      a) system_ifAdmin yes;; # Runs brew as
+      n) noWarnning="1";;
+    # CLI Brew Functions
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
       z) brew_reset yes;;
+      e) brewDo "$OPTARG";;
+    # CLI Package Functions
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
-      m) MASTERLIST="$OPTARG"; package_update $MASTERLIST;;
-      n) noWarnning="1";;
-      l) system_force yes;;
-      a) system_ifAdmin yes;;
-      e) brewDo "$OPTARG";;
+      M) package_update all;;
+      m) package_update new;;
+    # CLI Brass Functions
       b) brass_debug;;
       q) brass_update yes;;
+      T) BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh"; brass_update yes;;
+    # CLI Help Functions
       g) flags;;
       y) yaml;;
       h) help;;
@@ -131,7 +138,7 @@ sudo_check() {
 }
 sudo_disable() {
   system_user
-  SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
+  SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
   for str in ${SUDO_DIR[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
       STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
@@ -190,9 +197,11 @@ parse_yaml() {
       }
    }'
 }
-token_get() {
-  if [[ -f "/Library/brass/secret" ]]; then
-    token="$(cat /Library/brass/secret)"
+conf_get() {
+  if [[ -f "/Library/brass/brass.yaml" ]]; then
+    cfg="/Library/brass/brass.yaml"; file="yes"; run_config
+  elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
+    cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
   fi
 }
 #>
@@ -315,6 +324,12 @@ system_ifAdmin() {
     fi
   else
     SYSTEM_IFADMIN="false"
+  fi
+}
+
+system_secret() {
+  if [[ -z "$@" ]]; then
+    token="${token}"
   fi
 }
 #>
@@ -653,20 +668,59 @@ package_uninstall() {
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
 }
+#package_update() {
+#  system_user
+#  PACKAGE_UPDATE="$@"
+#  while IFS= read -r LINE; do
+#    if [[ $(/usr/local/bin/brass -vls "${SYSTEM_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
+#      echo "Updating ${LINE} as ${SYSTEM_USER}"
+#      /usr/local/bin/brass -vls "${SYSTEM_USER}" -up "${LINE}"
+#    elif [[ $(/usr/local/bin/brass -vls "${CONSOLE_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
+#      echo "Updating ${LINE} from ${CONSOLE_USER}"
+#      #/usr/local/bin/brass -vls "${CONSOLE_USER}" -up "${LINE}"
+#    else
+#      echo "${LINE} not found"
+#    fi
+#  done < <(curl -H "Authorization: token ${token}" "${PACKAGE_UPDATE}")
+#}
 package_update() {
   system_user
-  PACKAGE_UPDATE="$@"
-  while IFS= read -r LINE; do
-    if [[ $(/usr/local/bin/brass -vls "${SYSTEM_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-      echo "Updating ${LINE} as ${SYSTEM_USER}"
-      /usr/local/bin/brass -vls "${SYSTEM_USER}" -up "${LINE}"
-    elif [[ $(/usr/local/bin/brass -vls "${CONSOLE_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-      echo "Updating ${LINE} from ${CONSOLE_USER}"
-      #/usr/local/bin/brass -vls "${CONSOLE_USER}" -up "${LINE}"
-    else
-      echo "${LINE} not found"
+  if [[ "$@" == "all" ]]; then
+    if [[ -d "/Library/brass/pkg" ]]; then
+      while IFS= read -r LINE; do
+        echo "Updating ${LINE} as ${SYSTEM_USER}"
+        cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
+      done < <(ls "/Library/brass/pkg" | grep .yaml | awk "{print $9}")
     fi
-  done < <(curl -H "Authorization: token ${token}" "${PACKAGE_UPDATE}")
+#    if [[ -d "/Users/${CONSOLE_USER}/.brass/pkg" ]]; then
+#      while IFS= read -r LINE; do
+#        echo "Updating ${LINE} as ${CONSOLE_USER}"
+#        cfg="/Users/${CONSOLE_USER}/.brass/pkg/${LINE}"; file="yes"; run_config
+#      done < <(ls "/Users/${CONSOLE_USER}/.brass/pkg" | grep .yaml | awk "{print $9}")
+#    fi
+  elif [[ "$@" == "new" ]]; then
+    #statements
+    if [[ -d "/Library/brass/pkg" ]]; then
+      while IFS= read -r LINE; do
+        PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+      done < <(ls /Library/brass/pkg)
+      PKG_INSTALLED="$(brewDo list | grep -v "==>")"
+      PKG_DIF=$(echo ${PKG_MANAGED[@]} ${PKG_INSTALLED[@]} ${PKG_INSTALLED[@]} | tr ' ' '\n' | sort | uniq -u)
+      if [[ -z "${PKG_DIF}" ]]; then
+        printf "There are no new packages to manage.\n"
+      else
+        echo "${PKG_DIF}"
+        while IFS= read -r LINE; do
+          if [[ " ${PKG_MANAGED[@]} " =~ " ${LINE} " ]]; then
+            brewDo install "${LINE}"
+          fi
+        done < <(echo "$PKG_DIF" )
+      fi
+    fi
+    # end
+  fi
+
+
 }
 #>
 
@@ -833,7 +887,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-token_get
+conf_get
 script_check $@
 sudo_reset
 #>
