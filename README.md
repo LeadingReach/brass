@@ -1,5 +1,5 @@
 # brass
-### Brew As Script
+### **B**rew **AS** **S**cript
 
 brass is a utility designed to run brew on endpoints with multiple users.
 
