@@ -57,7 +57,7 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
   user@mac$ sudo brass -s admin -xup sl -b
 ```
 ### brass has the ability to manage the default homebrew prefix.
-```
+``` bash
   # Install a package as admin with the default homebrew prefix
   user@mac$ sudo brass -Zs admin -p sl
 
@@ -357,6 +357,49 @@ brassconf.yaml example:
       timeout: 10 | blank=10        # how long the notification will stay up until the script contines.
       allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
 ```
+###  Brass system configuration
+A brass.yaml configuration file can be stored in either the system directory or the user specific direcotry.
+```
+/Library/brass
+/Users/$(whoami)/.brass
+```
+This configuration file will apply to all brass commands by default unless over ridden by a command or package configuration file.
+#### Example brass.yaml
+```
+system:
+  secret:
+  runMode: local
+  verbose: yes
+  user: lcadmin
+  ifAdmin: no
+  force: yes
+
+brass:
+  update: yes
+  debug: yes
+```
+### brass.yaml with notes
+```
+system:
+  secret: *github auth token to pull configuration files from git*
+  runMode: local # specifis that brass should use the default system brew prefix
+  verbose: yes # Shows log fies
+  user: admin # the user that will run brew commands
+  ifAdmin: no # brass will ise the admin user reguardless of the system user's admin status
+  force: yes # brass confguration will be applied if there are any comflics.
+
+brass:
+  update: yes # checks for brass update
+  debug: yes # shows debug information
+```
+### Using brass to manage packages across several endpoints
+brass can be used to install, manage, and update brew packages across several endpoints. There are very many ways to do so using and MDM like Jamf or JumpCloud. The method I perfer pushes packages that contain yaml configuration profiles to the /Library/brass/pkg folder and then runs brass to install new packages.
+#### Work flow example
+1) Create a package using software similar to Jamf Composer or KosalaHerath/macos-installer-builder that contains package yaml file(s) in /Library/brass/pkg
+2) Use your MDM to distribute these packages to the intended endpoints
+3) Run ```brass -m ``` on intended endpoints to look for and install any new packages.
+
+You may also consider creating a policy that runs ```brass -M``` periodically to keep managed packages up to date.
 
 
 ###  -X: Xcode management utility.

@@ -1,0 +1,11 @@
+system:
+  secret:
+  runMode: local
+  verbose: yes
+  user: admin
+  ifAdmin: no
+  force: yes
+
+brass:
+  update: yes
+  debug: yes
