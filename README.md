@@ -16,9 +16,10 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/b
 ## Change brass versions
 You can swap between different brass branches on the fly
 ```bash
-sudo brass -T "brass-dev"
-sudo brass -T "brass-local"
+sudo brass -Q "brass-dev"
+sudo brass -Q "brass-local"
 ```
+
 
 ## Basic Usage
 brass can act as a 1 to 1 stand in for brew. Use any brew command after brass and it will run brew in a user specific prefix.

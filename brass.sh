@@ -48,7 +48,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:T:f:nlae:bqhygMm' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Q:f:nlae:bqhygMm' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
@@ -78,7 +78,7 @@ script_check() {
     # CLI Brass Functions
       b) brass_debug;;
       q) brass_update yes;;
-      T) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
+      Q) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
     # CLI Help Functions
       g) flags;;
       y) yaml;;
