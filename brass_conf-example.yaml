@@ -1,5 +1,4 @@
 system:
-  secret:
   runMode: local
   verbose: yes
   user: admin
