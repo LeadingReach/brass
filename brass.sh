@@ -203,10 +203,12 @@ parse_yaml() {
    }'
 }
 conf_get() {
-  if [[ -f "/Library/brass/brass.yaml" ]]; then
-    cfg="/Library/brass/brass.yaml"; file="yes"; run_config
-  elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
-    cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
+  if [[ ! "$EUID" -ne 0 ]]; then
+    if [[ -f "/Library/brass/brass.yaml" ]]; then
+      cfg="/Library/brass/brass.yaml"; file="yes"; run_config
+    elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
+      cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
+    fi
   fi
 }
 #>
