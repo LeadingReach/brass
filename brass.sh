@@ -3,7 +3,7 @@
 #< Enviroment variables
 # brass_url - brass script URL
 if [[ -f "/Library/brass/brass.yaml" ]] && [[ -n $(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}') ]]; then
-  BRASS_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch:' '{print $2}')
+  BRASS_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
   BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
 else
   BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
@@ -203,7 +203,7 @@ parse_yaml() {
    }'
 }
 conf_get() {
-  if [[ ! "$EUID" -ne 0 ]]; then
+  if [[ "$@" == "yes" ]] && [[ ! "$EUID" -ne 0 ]]; then
     if [[ -f "/Library/brass/brass.yaml" ]]; then
       cfg="/Library/brass/brass.yaml"; file="yes"; run_config
     elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
@@ -912,7 +912,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-conf_get
+conf_get yes
 script_check $@
 sudo_reset
 #>
