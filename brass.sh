@@ -48,7 +48,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Q:f:nlae:bqhygMm' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Q:f:nlae:bqhygMmU' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
@@ -74,7 +74,8 @@ script_check() {
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
       M) package_update all;;
-      m) package_update new;;
+      m) package_update show;;
+      U) package_update new;;
     # CLI Brass Functions
       b) brass_debug;;
       q) brass_update yes;;
@@ -692,12 +693,34 @@ package_uninstall() {
 #}
 package_update() {
   system_user
-  if [[ "$@" == "all" ]]; then
+#
+ if [[ "$@" == "all" ]]; then
+   if [[ -d "/Library/brass/pkg" ]]; then
+    while IFS= read -r LINE; do
+      PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+      if [[ ! -z $(brewDo outdated | grep "$PKG_MANAGED") ]]; then
+        say "${PKG_MANAGED} update available\n"
+        say "Updating ${LINE} as ${SYSTEM_USER}\n"
+        cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
+      else
+        echo "${PKG_MANAGED}"
+        echo "from ${LINE} is all up to date"
+      fi
+    done < <(ls /Library/brass/pkg)
+  fi
+#
+  elif [[ "$@" == "show" ]]; then
+    #statements
     if [[ -d "/Library/brass/pkg" ]]; then
       while IFS= read -r LINE; do
-        echo "Updating ${LINE} as ${SYSTEM_USER}"
-        cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
-      done < <(ls "/Library/brass/pkg" | grep .yaml | awk "{print $9}")
+        PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+        if [[ ! -z $(brewDo outdated | grep "$PKG_MANAGED") ]]; then
+          echo "${PKG_MANAGED} update available"
+        else
+          echo "${PKG_MANAGED}"
+          echo "from ${LINE} is all up to date"
+        fi
+      done < <(ls /Library/brass/pkg)
     fi
 #    if [[ -d "/Users/${CONSOLE_USER}/.brass/pkg" ]]; then
 #      while IFS= read -r LINE; do
