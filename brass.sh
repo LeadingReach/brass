@@ -743,7 +743,7 @@ package_update() {
         echo "${PKG_DIF}"
         while IFS= read -r LINE; do
           if [[ " ${PKG_MANAGED[@]} " =~ " ${LINE} " ]]; then
-            brewDo install "${LINE}"
+            brewDo install "${LINE}" -f
           fi
         done < <(echo "$PKG_DIF" )
       fi
