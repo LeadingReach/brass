@@ -518,6 +518,7 @@ brew_check() {
   if [[ -d "${BREW_PREFIX}" ]] && [[ "${BREW_USER}" != "${SYSTEM_USER}" ]]; then
     echo "${SYSTEM_USER} does not own ${BREW_PREFIX}"
     printf "${SYSTEM_USER} will take ownership of ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
+    sudo_disable
     user_command /usr/bin/sudo /usr/sbin/chown -R ${SYSTEM_USER}: ${BREW_PREFIX}
   fi
 }
