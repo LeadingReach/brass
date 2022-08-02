@@ -132,27 +132,29 @@ warning() {
   fi
 }
 sudo_check() {
-  # Checks to see if sudo binary is executable
-  if [[ ! -x "/usr/bin/sudo" ]]
-  then
-    err "sudo binary is missing or not executable"
-  fi
+  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+    # Checks to see if sudo binary is executable
+    if [[ ! -x "/usr/bin/sudo" ]]
+    then
+      err "sudo binary is missing or not executable"
+    fi
 
-  # Checks to see if script has sudo priviledges
-  if [ "$EUID" -ne 0 ];then
-  err "sudo priviledges are reqired $@"
+    # Checks to see if script has sudo priviledges
+    if [ "$EUID" -ne 0 ];then
+    err "sudo priviledges are reqired $@"
+    fi
+
+  else
+    say "sudo priviledges are not required"
   fi
 }
 sudo_disable() {
   system_user
   SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
-  say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run brew dependencies as root without a password\n"
   for str in ${SUDO_DIR[@]}; do
-    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
+    if [[ -z $(/usr/bin/sudo cat /etc/sudoers | grep "${str}" | grep "#brass") ]]; then
       STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
       echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
-    else
-      say "etc/sudoers already allows brass to run $str as root without a password\n"
     fi
   done
 }
@@ -185,7 +187,6 @@ run_config () {
     fi
     "${run}" "${str}"
   done < <(echo "${cfg}")''
-  sudo_reset
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
@@ -302,8 +303,8 @@ system_user() {
       say "System user found: ${SYSTEM_USER}\n"
     else
       say "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
-      # check here
       sudo_check "to run brew as another user"
+      system_user_make
       # err "${SYSTEM_USER} not found"
     fi
 
@@ -327,9 +328,26 @@ system_user() {
 
 }
 system_user_make() {
+  # Makes new user's UID
+  uids=$( dscl . -list /Users UniqueID | awk '{print $2}' )
+  uid=504
+  while true; do
+    if ! echo $uids | grep -F -q -w "$uid"; then
+      break;
+    fi
+    uid=$(( $uid + 1))
+    gid=$(( $uid + 1))
+  done
+  sudo mkdir -p "/Users/${SYSTEM_USER}"
   sudo dscl . -create "/Users/${SYSTEM_USER}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}" UserShell /bin/
+  sudo dscl . -create "/Users/${SYSTEM_USER}" UserShell /bin/bash
   sudo dscl . -create "/Users/${SYSTEM_USER}" RealName "${SYSTEM_USER}"
+  sudo dscl . -create "/Users/${SYSTEM_USER}" UniqueID "${uid}"
+  sudo dscl . -create "/Users/${SYSTEM_USER}" PrimaryGroupID "${gid}"
+  sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
+  sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
+  sudo chown -R "${SYSTEM_USER}": "/Users/${SYSTEM_USER}"
+  say "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
