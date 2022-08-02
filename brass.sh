@@ -682,10 +682,10 @@ package_install() {
   env_package
   if [[ -z $(brewDo list | grep -w "$PACKAGE_INSTALL") ]]; then
     say "Installing $PACKAGE_INSTALL\n"
-    brewDo install $PACKAGE_INSTALL -f
+    brewDo install $PACKAGE_INSTALL -f | grep -v "Operation not permitted"
   else
     say "Updating $PACKAGE_INSTALL\n"
-    brewDo upgrade $PACKAGE_INSTALL
+    brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
   fi
   env_package
 }
