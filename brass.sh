@@ -48,7 +48,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:Q:f:nlae:bqhygMmU' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:P:d:t:Q:f:nlae:bqhygMmU' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
@@ -72,6 +72,7 @@ script_check() {
       e) brewDo "$OPTARG";;
     # CLI Package Functions
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
+      P) PACKAGE="$OPTARG"; package_manage $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
       M) package_update all;;
       m) package_update show;;
@@ -145,10 +146,10 @@ sudo_check() {
 sudo_disable() {
   system_user
   SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
+  say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run brew dependencies as root without a password\n"
   for str in ${SUDO_DIR[@]}; do
     if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
       STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
-      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run ${STR_BINARY} as root without a password\n"
       echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
     else
       say "etc/sudoers already allows brass to run $str as root without a password\n"
@@ -300,7 +301,10 @@ system_user() {
     if id "${SYSTEM_USER}" &>/dev/null; then
       say "System user found: ${SYSTEM_USER}\n"
     else
-      err "${SYSTEM_USER} not found"
+      say "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
+      # check here
+      sudo_check "to run brew as another user"
+      # err "${SYSTEM_USER} not found"
     fi
 
     # Checks to see if sudo priviledges are required
@@ -322,6 +326,11 @@ system_user() {
   fi
 
 }
+system_user_make() {
+  sudo dscl . -create "/Users/${SYSTEM_USER}"
+  sudo dscl . -create "/Users/${SYSTEM_USER}" UserShell /bin/
+  sudo dscl . -create "/Users/${SYSTEM_USER}" RealName "${SYSTEM_USER}"
+}
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
     if [[ "${USER_CLASS}" == "admin" ]]; then
@@ -334,7 +343,6 @@ system_ifAdmin() {
     SYSTEM_IFADMIN="false"
   fi
 }
-
 system_secret() {
   if [[ -z "$@" ]]; then
     token="${token}"
@@ -663,6 +671,24 @@ package_install() {
   fi
   env_package
 }
+package_manage() {
+  PACKAGE_MANAGE="$@"
+  system_user
+  if [[ -z "${PACKAGE_MANAGE}" ]]; then
+    err "no package specified"
+  fi
+  if [[ -d "/Library/brass/pkg" ]]; then
+    while IFS= read -r LINE; do
+      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls /Library/brass/pkg)
+    if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
+      say "adding "${PACKAGE_MANAGE}".yaml to /Library/brass/pkg/\n"
+      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > /Library/brass/pkg/"${PACKAGE_MANAGE}".yaml
+    else
+      say "${PACKAGE_MANAGE} is already managed\n"
+    fi
+  fi
+}
 package_uninstall() {
   if [[ -z "${PACKAGE_UNINSTALL}" ]]; then
     PACKAGE_UNINSTALL="$@"
@@ -694,19 +720,13 @@ package_uninstall() {
 #}
 package_update() {
   system_user
+  sudo_disable
 #
  if [[ "$@" == "all" ]]; then
    if [[ -d "/Library/brass/pkg" ]]; then
     while IFS= read -r LINE; do
       PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-      if [[ ! -z $(brewDo outdated | grep "$PKG_MANAGED") ]]; then
-        say "${PKG_MANAGED} update available\n"
-        say "Updating ${LINE} as ${SYSTEM_USER}\n"
-        cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
-      else
-        echo "${PKG_MANAGED}"
-        echo "from ${LINE} is all up to date"
-      fi
+      cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
     done < <(ls /Library/brass/pkg)
   fi
 #
