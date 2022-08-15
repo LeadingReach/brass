@@ -76,7 +76,7 @@ say() {
   printf "$(date): $@" >> "${LOG_FILE}"
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "$@"
-  fi3
+  fi
 }
 err() {
   printf '%s\n' "$1" >&2
