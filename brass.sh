@@ -23,27 +23,6 @@ fi)
 # This allows err funtion to exit script whith in a subshell
 set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
-
-# this is for the log file
-# Checks to see if script has sudo priviledges
-#if [ "$EUID" -ne 0 ];then
-#  LOG_FILE="/Users/${CONSOLE_USER}/.brass.log"
-#else
-#  LOG_FILE="/var/log/brass.log"
-#fi
-#
-#if [[ -f "${LOG_FILE}" ]]; then
-#  mv "${LOG_FILE}" "${LOG_FILE}.1"
-#fi
-#
-#exec 3>&1 4>&2
-#trap 'exec 2>&4 1>&3' 0 1 2 3
-#exec 1> >(tee "${LOG_FILE}") 2>&1
-#
-#if [[ -n "${CI-}" ]]; then
-#  SYSTEM_FORCE="true"
-#  echo "NONINTERACTIVE ENABLED"
-#fi
 #>
 
 #< Script Functions
@@ -97,7 +76,7 @@ say() {
   printf "$(date): $@" >> "${LOG_FILE}"
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "$@"
-  fi
+  fi3
 }
 err() {
   printf '%s\n' "$1" >&2
@@ -229,7 +208,7 @@ conf_get() {
 #< System Functions
 env_system() {
   if [[ `uname -m` == 'arm64' ]]; then
-    BREW_PREFIX="/opt/homebrew" # changed from BREW_PATH
+    BREW_PREFIX="/opt/homebrew"
     BREW_BINARY="/opt/homebrew/bin/brew"
     if [[ ! -x "$BREW_BINARY" ]]; then unset BREW_BINARY; else
       BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
@@ -239,7 +218,7 @@ env_system() {
       BREW_BIN="/opt/homebrew/bin"
     fi
   else
-    BREW_PREFIX="/usr/local" # changed from BREW_PATH
+    BREW_PREFIX="/usr/local"
     BREW_BINARY="/usr/local/Homebrew/bin/brew"
     if [[ ! -x "${BREW_BINARY}" ]]; then unset BREW_BINARY; else
       BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
@@ -328,11 +307,6 @@ system_user() {
     if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
       sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
     fi
-
-  #  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
-  #    say "updaing user enviroment variables"
-  #    export "${ENV_USER}"
-  #  fi
     SYSTEM_USER_RAN="1"
   fi
 
@@ -524,19 +498,6 @@ brewRun() {
     eval "/usr/bin/sudo -i -u $SYSTEM_USER $BREW_PREFIX/bin/$@"
   fi
 }
-#brewRun() {
-#  if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
-#    if [ "$EUID" -ne 0 ] ;then
-#      "${BREW_BIN}"/$@
-#    else
-#      echo "HERE $BREW_BIN"
-#      /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
-#      exit 77
-#    fi
-#  else
-#    /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
-#  fi
-#}
 brew_check() {
   # Update brew enviroment variables
   system_user
@@ -961,12 +922,10 @@ brass_upgrade() {
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
 }
-
 system_branch() {
   BRASS_BRANCH="$@"
   brass_changeBranch
 }
-
 brass_changeBranch() {
   BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
   BRASS_CONF_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
