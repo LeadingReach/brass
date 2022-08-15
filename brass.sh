@@ -48,7 +48,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:Zvxs:iruzp:P:d:t:Q:f:nlae:bqhygMmU' flag; do
+  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoON' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
@@ -58,6 +58,7 @@ script_check() {
       t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
     # CLI System Functions
       Z) system_runMode system; env_brew;; # Runs default system brew prefix
+      V) VERBOSE_OVERIDE="true";;
       v) system_verbose yes;; # Shows verbose information
       x) xcode_update yes;; # Checks and updates xcode if available
       s) system_user "$OPTARG";; # Selects which user to run brew as
@@ -77,7 +78,9 @@ script_check() {
       M) package_update all;;
       m) package_update show;;
       U) package_update new;;
+      o) package_update outdated;;
     # CLI Brass Functions
+      N) notify_update;;
       b) brass_debug;;
       q) brass_update yes;;
       Q) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
@@ -91,6 +94,7 @@ script_check() {
   if [ $OPTIND -eq 1 ]; then system_user; brewDo "$@"; fi
 }
 say() {
+  printf "$(date): $@" >> "${LOG_FILE}"
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "$@"
   fi
@@ -207,6 +211,12 @@ parse_yaml() {
 }
 conf_get() {
   if [[ "$@" == "yes" ]] && [[ ! "$EUID" -ne 0 ]]; then
+    if [[ -f "/Library/brass/brass.yaml" ]]; then
+      cfg="/Library/brass/brass.yaml"; file="yes"; run_config
+    elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
+      cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
+    fi
+  elif [[ "$@" == "VERBOSE_OVERIDE" ]] && [[ ! "$EUID" -ne 0 ]]; then
     if [[ -f "/Library/brass/brass.yaml" ]]; then
       cfg="/Library/brass/brass.yaml"; file="yes"; run_config
     elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
@@ -608,7 +618,7 @@ brew_system_uninstall () {
 brew_update() {
   if [[ "$@" == "yes" ]]; then
     brew_check
-    say "brew_update: Enabled.\nUpdating brew\n"
+    say "brew_update: Enabled. Updating brew\n"
     brewDo update
   fi
 }
@@ -721,21 +731,6 @@ package_uninstall() {
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
 }
-#package_update() {
-#  system_user
-#  PACKAGE_UPDATE="$@"
-#  while IFS= read -r LINE; do
-#    if [[ $(/usr/local/bin/brass -vls "${SYSTEM_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-#      echo "Updating ${LINE} as ${SYSTEM_USER}"
-#      /usr/local/bin/brass -vls "${SYSTEM_USER}" -up "${LINE}"
-#    elif [[ $(/usr/local/bin/brass -vls "${CONSOLE_USER}" -e list | grep "${LINE}") == "${LINE}" ]]; then
-#      echo "Updating ${LINE} from ${CONSOLE_USER}"
-#      #/usr/local/bin/brass -vls "${CONSOLE_USER}" -up "${LINE}"
-#    else
-#      echo "${LINE} not found"
-#    fi
-#  done < <(curl -H "Authorization: token ${token}" "${PACKAGE_UPDATE}")
-#}
 package_update() {
   system_user
   sudo_disable
@@ -749,24 +744,56 @@ package_update() {
   fi
 #
   elif [[ "$@" == "show" ]]; then
+  #statements
+  if [[ -d "/Library/brass/pkg" ]]; then
+    while IFS= read -r LINE; do
+      PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls /Library/brass/pkg)
+    PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
+    PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
+    while IFS= read -r LINE; do
+      if [[ " ${PKG_OUTDATED[*]} " =~ "${LINE}" ]]; then
+        PKG_MANAGED_OUTDATED="${PKG_MANAGED_OUTDATED} ${LINE}"
+      fi
+    done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
+    if [[ -z "${PKG_MANAGED}" ]]; then
+      say "No managed packages found\n"
+    elif [[ -z "${PKG_OUTDATED}" ]]; then
+      printf "### All packages are up to date ###\n"
+      printf "${PKG_MANAGED}\n" | tr ' ' '\n' | sed '/^[[:space:]]*$/d'
+      printf "###################################\n"
+    elif [[ ! -z "${PKG_OUTDATED}" ]]; then
+      printf "### Outdated Packages ###\n"
+      printf "${PKG_OUTDATED}\n" | tr ' ' '\n' | sed '/^[[:space:]]*$/d'
+      printf "#########################\n"
+    else
+      err "an error has occured\n"
+    fi
+  fi
+
+  elif [[ "$@" == "outdated" ]]; then
     #statements
     if [[ -d "/Library/brass/pkg" ]]; then
       while IFS= read -r LINE; do
-        PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-        if [[ ! -z $(brewDo outdated | grep "$PKG_MANAGED") ]]; then
-          echo "${PKG_MANAGED} update available"
-        else
-          echo "${PKG_MANAGED}"
-          echo "from ${LINE} is all up to date"
-        fi
+        PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
       done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
+      PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
+      while IFS= read -r LINE; do
+        if [[ " ${PKG_OUTDATED[*]} " =~ "${LINE}" ]]; then
+          PKG_MANAGED_OUTDATED="${PKG_MANAGED_OUTDATED} ${LINE}"
+        fi
+      done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
+      if [[ -z "${PKG_MANAGED}" ]] && [[ -z "${PKG_OUTDATED}" ]]; then
+        say "No managed packages found\n"
+      elif [[ -z "${PKG_OUTDATED}" ]]; then
+        printf "All packages are up to date\n"
+      elif [[ ! -z "${PKG_OUTDATED}" ]]; then
+        printf "Package updates available\n"
+      else
+        err "an error has occured\n"
+      fi
     fi
-#    if [[ -d "/Users/${CONSOLE_USER}/.brass/pkg" ]]; then
-#      while IFS= read -r LINE; do
-#        echo "Updating ${LINE} as ${CONSOLE_USER}"
-#        cfg="/Users/${CONSOLE_USER}/.brass/pkg/${LINE}"; file="yes"; run_config
-#      done < <(ls "/Users/${CONSOLE_USER}/.brass/pkg" | grep .yaml | awk "{print $9}")
-#    fi
   elif [[ "$@" == "new" ]]; then
     #statements
     if [[ -d "/Library/brass/pkg" ]]; then
@@ -788,8 +815,6 @@ package_update() {
     fi
     # end
   fi
-
-
 }
 #>
 
@@ -854,23 +879,68 @@ notify_allowCancel() {
     notify_buttons="\"okay\", \"not now\""
   fi
 }
-notify_run() {
-  notify_input=$(/usr/bin/osascript<<-EOF
-    tell application "System Events"
-    activate
-    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon $notify_icon)
-    end tell
-    return myAnswer
-    EOF)
-    if [[ $notify_input == "not now" ]]; then
-      err "user canceled"
+notify_update() {
+  if [[ ! -d /Library/Application\ Support/Dialog ]]; then
+    sudo_check "for swiftDialog\n"
+    env_brew
+    if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
+      say "${BREW_PREFIX}/install-tmp found, removing."
+      rm -r "${BREW_PREFIX}/install-tmp"
     fi
-    say "User user input: $notify_input\n"
-    unset dialog
+    say "creating ${BREW_PREFIX}/install-tmp"
+    mkdir -p "${BREW_PREFIX}/install-tmp"
+    REPO='bartreardon/swiftDialog'
+    URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
+    PKG=$(echo $URL | awk -F"/" '{print $NF}')
+    say "Downloading swiftDialog"
+    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
+    say "Installing swiftDialog"
+    /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
+    say "cleaning brew_depends\n"
+    rm -r "${BREW_PREFIX}/install-tmp"
+  fi
+
+  if [[ -f /Library/brass/notify.yaml ]]; then
+    PKG_STATUS="$(package_update outdated)"
+    if [[ "${PKG_STATUS}" == "No managed packages found" ]] || [[ "${PKG_STATUS}" == "All packages are up to datee" ]]; then
+      say "Package update not required\n"
+    else
+      echo "I SEE IT"
+      cfg="/Library/brass/notify.yaml"; file="yes"; run_config
+      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "${notify_title}" -m "${notify_dialog}\n\n${PKG_STATUS}" --alignment center -i "${notify_iconPath}" --iconsize 90 --selecttitle "When would you like to update?" --selectvalues "Now,Remind me in 15 minutes" --selectdefault "Now" | grep "When would you like to update?" | head -n 1 | awk -F ": " '{print $2}')"
+      if [[ -z "${DIALOG_REBOOT}" ]]; then
+        err "error, nothing specified\n"
+      # Checks to see if "Now" option has been selected
+      elif [[ "${DIALOG_REBOOT}" == "Now" ]]; then
+        DIALOG_REBOOT="$(/usr/local/bin/dialog --button1disabled -t "Application Update Altert" -m "### Updating System Applications. \nPlease ensure that your workstation is plugged into a power source." --alignment center -i "${notify_iconPath}" --iconsize 90 --progress --progresstext "Updating System Applications")" & package_update all
+        killall Dialog
+        DIALOG_REBOOT="$(/usr/local/bin/dialog -t "Application Update Altert" -m "### System Application Update Complete. \nAffected applications may need to quit and reopen." --alignment center -i "${notify_iconPath}" --iconsize 90)"
+      fi
+    fi
+
+  else
+    PACKAGE_UPDATE_STATUS=$(package_update outdated)
+    if [[ "${PACKAGE_UPDATE_STATUS}" != "All packages are up to date" ]]; then
+      say "All packages are up to date\n"
+    else
+      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "test" -m "${PACKAGE_UPDATE_STATUS}" --alignment center)"
+    fi
+  fi
 }
 #>
 
 #< Brass Functions
+brass_log() {
+  LOG_DATE=$(date +"%m-%d-%y")
+  LOG_FILE="/Library/brass/log/brass_${LOG_DATE}.log"
+  if [[ ! -d /Library/brass/log ]]; then
+    mkdir -p /Library/brass/log
+  fi
+  if [[ ! -f "$LOG_FILE" ]]; then
+    touch "${LOG_FILE}"
+  fi
+  printf "$(date): $@\n" >> "${LOG_FILE}"
+}
 brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
@@ -952,15 +1022,13 @@ brass_debug() {
 #>
 
 #< Script Logic
+brass_log "#### BRASS START ####"
 if [[ -z $@ ]]; then
   if [[ ! -x /usr/local/bin/brass ]]; then
     printf "Installing brass to /usr/local/bin/brass Press ctrl+c to cancel. Timeout:  "; countdown
     sudo_check "to install brass"
     mkdir -p /usr/local/bin/
     brass_upgrade
-    if [[ ! -d /Library/brass/pkg ]]; then
-      mkdir -p /Library/brass/pkg
-    fi
     say "done.\n\n"
   else
     brass_update yes
@@ -968,6 +1036,9 @@ if [[ -z $@ ]]; then
   printf "use brass -h for more infomation.\n"
   sudo_reset
   exit
+fi
+if [[ ! -d /Library/brass/pkg ]]; then
+  mkdir -p /Library/brass/pkg
 fi
 # Checks to see if xcode CommandLineTools is installed
 if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
@@ -977,4 +1048,5 @@ system_runMode local
 conf_get yes
 script_check $@
 sudo_reset
+brass_log "##### BRASS END #####\n"
 #>
