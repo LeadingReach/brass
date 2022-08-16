@@ -813,6 +813,207 @@ package_new() {
 }
 #>
 
+#< Process Functions
+process_kill() {
+  if [[ -z "${PROCESS_KILL}" ]]; then
+    PROCESS_KILL="${@}"
+  fi
+  if [[ "${PROCESS_KILL}" != "no" ]]; then
+    system_user
+    say "killing ${PROCESS_KILL} process"
+    pkill -9 "${PROCESS_KILL}"
+  fi
+}
+#>
+
+#< Notify Functions
+notify_title(){
+  if [[ -z "$@" ]] ; then
+    notify_title=brass
+  else
+    notify_title=$(echo "$@" | tr -d '"')
+  fi
+}
+notify_iconLink() {
+  if [[ -z "$@" ]]; then
+    unset notify_iconLink
+  else
+    notify_iconLink=$(echo "$@" | tr -d '"')
+  fi
+}
+notify_iconPath() {
+  if [[ -z "$@" ]]; then
+    notify_icon="caution"
+  else
+    notify_iconPath=$(echo "$@" | tr -d '"')
+    notify_icon="POSIX file (\"$notify_iconPath\" as string)"
+    curl "${notify_iconLink}" --output "${notify_iconPath}"
+  fi
+}
+notify_dialog() {
+    notify_dialog="$@"
+    if [[ -z $notify_dialog ]]; then
+      echo "$@"
+      err "Dialog must be specified"
+    else
+      notify_dialog=$(echo "$@" | tr -d '"')
+    fi
+    notify_run
+}
+notify_timeout() {
+  if [[ -z "$@" ]]; then
+    notify_timeout=10
+  else
+    notify_timeout=$(echo "$@" | tr -d '"')
+  fi
+}
+notify_allowCancel() {
+  if [[ "${@}" = "\"no"\" ]]; then
+    notify_buttons="\"okay\""
+  else
+    notify_buttons="\"okay\", \"not now\""
+  fi
+}
+notify_update() {
+  if [[ ! -d /Library/Application\ Support/Dialog ]]; then
+    sudo_check "for swiftDialog\n"
+    env_brew
+    if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
+      say "${BREW_PREFIX}/install-tmp found, removing."
+      rm -r "${BREW_PREFIX}/install-tmp"
+    fi
+    say "creating ${BREW_PREFIX}/install-tmp"
+    mkdir -p "${BREW_PREFIX}/install-tmp"
+    REPO='bartreardon/swiftDialog'
+    URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
+    PKG=$(echo $URL | awk -F"/" '{print $NF}')
+    say "Downloading swiftDialog"
+    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
+    say "Installing swiftDialog"
+    /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
+    say "cleaning brew_depends\n"
+    rm -r "${BREW_PREFIX}/install-tmp"
+  fi
+
+  if [[ -f /Library/brass/notify.yaml ]]; then
+    PKG_STATUS="$(package_update outdated)"
+    if [[ "${PKG_STATUS}" == "No managed packages found" ]] || [[ "${PKG_STATUS}" == "All packages are up to datee" ]]; then
+      say "Package update not required\n"
+    else
+      echo "I SEE IT"
+      cfg="/Library/brass/notify.yaml"; file="yes"; run_config
+      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "${notify_title}" -m "${notify_dialog}\n\n${PKG_STATUS}" --alignment center -i "${notify_iconPath}" --iconsize 90 --selecttitle "When would you like to update?" --selectvalues "Now,Remind me in 15 minutes" --selectdefault "Now" | grep "When would you like to update?" | head -n 1 | awk -F ": " '{print $2}')"
+      if [[ -z "${DIALOG_REBOOT}" ]]; then
+        err "error, nothing specified\n"
+      # Checks to see if "Now" option has been selected
+      elif [[ "${DIALOG_REBOOT}" == "Now" ]]; then
+        DIALOG_REBOOT="$(/usr/local/bin/dialog --button1disabled -t "Application Update Altert" -m "### Updating System Applications. \nPlease ensure that your workstation is plugged into a power source." --alignment center -i "${notify_iconPath}" --iconsize 90 --progress --progresstext "Updating System Applications")" & package_update all
+        killall Dialog
+        DIALOG_REBOOT="$(/usr/local/bin/dialog -t "Application Update Altert" -m "### System Application Update Complete. \nAffected applications may need to quit and reopen." --alignment center -i "${notify_iconPath}" --iconsize 90)"
+      fi
+    fi
+
+  else
+    PACKAGE_UPDATE_STATUS=$(package_update outdated)
+    if [[ "${PACKAGE_UPDATE_STATUS}" != "All packages are up to date" ]]; then
+      say "All packages are up to date\n"
+    else
+      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "test" -m "${PACKAGE_UPDATE_STATUS}" --alignment center)"
+    fi
+  fi
+}
+#>
+
+#< Brass Functions
+brass_log() {
+  LOG_DATE=$(date +"%m-%d-%y")
+  LOG_FILE="/Library/brass/log/brass_${LOG_DATE}.log"
+  if [[ ! -d /Library/brass/log ]]; then
+    mkdir -p /Library/brass/log
+  fi
+  if [[ ! -f "$LOG_FILE" ]]; then
+    touch "${LOG_FILE}"
+  fi
+  printf "$(date): $@\n" >> "${LOG_FILE}"
+}
+brass_update() {
+  if [[ "$@" == "yes" ]]; then
+    BRASS_BINARY="/usr/local/bin/brass"
+    BRASS_DATA=$(cat "${BRASS_BINARY}")
+    BRASS_GET=$(curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}")
+    BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
+    if [[ -z "${BRASS_DIF}" ]]; then
+      printf "brass is up to date.\n"
+    else
+      printf "brass upgrade available. Upgrading brass. Press ctrl+c to cancel. Timeout:  "; countdown
+      brass_upgrade
+    fi
+  fi
+}
+brass_upgrade() {
+  sudo_check "to install brass"
+  curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
+  chmod +x /usr/local/bin/brass
+  say "install complete.\n"
+}
+system_branch() {
+  BRASS_BRANCH="$@"
+  brass_changeBranch
+}
+brass_changeBranch() {
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
+  BRASS_CONF_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
+  if [[ "${BRASS_BRANCH}" != "${BRASS_CONF_BRANCH}" ]]; then
+    BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" /Library/brass/brass.yaml)
+    echo "${BRASS_CONF}" > /Library/brass/brass.yaml
+  fi
+  brass_update yes
+}
+brass_debug() {
+  env_brew
+  if [[ "${BREW_STATUS}" == "not installed" ]]; then
+    BREW_DEBUG="BREW_STATUS=${BREW_STATUS}"
+  else
+    BREW_DEBUG="BREW_STATUS=${BREW_STATUS}
+      BREW_RESET=${BREW_RESET}
+      BREW_USER=${BREW_USER}
+      BREW_PREFIX=${BREW_PREFIX}
+      BREW_REPO=${BREW_REPO}
+      BREW_CELLAR=${BREW_CELLAR}
+      BREW_CASKROOM=${BREW_CASKROOM}"
+  fi
+
+
+
+  printf "BRASS DEBUG:
+      BRASS LOG: ${LOG_DIR}
+
+    USER DEBUG:
+      CONSOLE_USER=${CONSOLE_USER}
+      USER_CLASS=${USER_CLASS}
+
+    SYSTEM DEBUG:
+      SYSTEM_VEROBSE=${SYSTEM_VEROBSE}
+      SYSTEM_RUNMODE=${SYSTEM_RUNMODE}
+      SYSTEM_FORCE=${SYSTEM_FORCE}
+      SYSTEM_IFADMIN=${SYSTEM_IFADMIN}
+      SYSTEM_USER=${SYSTEM_USER}
+
+    XCODE DEBUG:
+      XCODE_CHECK_INSTALLED=${XCODE_CHECK_INSTALLED}
+      XCODE_INSTALLED=${XCODE_INSTALLED}
+      XCODE_INSTALLED_VERSION=${XCODE_INSTALLED_VERSION}
+      XCODE_LATEST_VERSION=${XCODE_LATEST_VERSION}
+
+    BREW DEBUG:
+      ${BREW_DEBUG}
+
+    PACKAGE DEBUG:
+      ${PACKAGE_DEBUG}
+      \n"
+}
+#>
+
 #< Script Logic
 brass_log "#### BRASS START ####"
 if [[ -z $@ ]]; then
