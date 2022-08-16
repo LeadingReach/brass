@@ -644,13 +644,7 @@ env_package() {
 #  fi
 }
 package_install() {
-  if [[ ! -z "${PACKAGE_MANAGE}" ]] && [[ -z "${PACKAGE_INSTALL}" ]]; then
-    PACKAGE_INSTALL="${PACKAGE_MANAGE}"
-  elif [[ -z "${PACKAGE_INSTALL}" ]]; then
-    err "no package specifed\n"
-  else
-    PACKAGE_INSTALL="$@"
-  fi
+  PACKAGE_INSTALL="$@"
   system_user
   if [[ -z "${PACKAGE_INSTALL}" ]]; then
     err "no package specified"
