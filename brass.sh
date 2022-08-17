@@ -918,14 +918,62 @@ notify_update() {
 }
 #>
 
+#< Conf Functions
+config_run() {
+  if id "${CONF_USER}" &>/dev/null; then
+    say "Config user found: ${CONF_USER}\n"
+  else
+    err "${CONF_USER} not found\n"
+  fi
+
+  if [[ ! -d "${CONF_DIR}" ]]; then
+    say "Configuration directory not found. Creating ${CONF_DIR}\n"
+    mkdir -p "${CONF_DIR}"
+  else
+    say "Configuration directory found.\n"
+  fi
+
+  if [[ ! -f "${CONF_FILE}" ]]; then
+    say "Configuation file not found. Creating ${CONF_FILE}\n"
+    touch "${CONF_FILE}"
+  else
+    say "Configuation file found. Overriding ${CONF_FILE}\n"
+  fi
+
+  printf "${CONF_CONTENTS}" > "${CONF_FILE}"
+  say "$(cat "${CONF_FILE}")\n"
+  chown -R "${CONF_USER}": "${CONF_DIR}"
+}
+
+config_user(){
+  eval "CONF_USER=$(echo ${@})"
+}
+
+config_file(){
+  eval "CONF_FILE=$(echo ${@})"
+  CONF_DIR="$(echo ${CONF_FILE} | awk -F'/' 'BEGIN {OFS = FS} {$NF=""}1')"
+}
+
+config_contents(){
+  eval "CONF_CONTENTS=$(echo ${@})"
+  config_run
+}
+#>
+
 #< Brass Functions
 brass_log() {
   LOG_DATE=$(date +"%m-%d-%y")
-  LOG_FILE="/Library/brass/log/brass_${LOG_DATE}.log"
-  if [[ ! -d /Library/brass/log ]]; then
-    mkdir -p /Library/brass/log
+  if [ "$EUID" -ne 0 ]; then
+    LOG_FILE="/Users/${CONSOLE_USER}/.config/brass/log/brass_${LOG_DATE}.log"
+    LOG_DIR="/Users/${CONSOLE_USER}/.config/brass/log"
+  else
+    LOG_FILE="/Library/brass/log/brass_${LOG_DATE}.log"
+    LOG_DIR="/Library/brass/log"
   fi
-  if [[ ! -f "$LOG_FILE" ]]; then
+  if [[ ! -d "${LOG_DIR}" ]]; then
+    mkdir -p "${LOG_DIR}"
+  fi
+  if [[ ! -f "${LOG_FILE}" ]]; then
     touch "${LOG_FILE}"
   fi
   printf "$(date): $@\n" >> "${LOG_FILE}"
