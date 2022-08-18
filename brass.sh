@@ -1,13 +1,6 @@
-#!/bin/bash
+ #!/bin/bash
 
 #< Enviroment variables
-# brass_url - brass script URL
-if [[ -f "/Library/brass/brass.yaml" ]] && [[ -n $(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}') ]]; then
-  BRASS_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
-else
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
-fi
 # consoleUser - Get current logged in user
 CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
 
@@ -23,49 +16,53 @@ fi)
 # This allows err funtion to exit script whith in a subshell
 set -E
 trap '[ "$?" -ne 77 ] || exit 77' ERR
+
+# this is for the log file
+# Checks to see if script has sudo priviledges
+#if [ "$EUID" -ne 0 ];then
+#  LOG_FILE="/Users/${CONSOLE_USER}/.brass.log"
+#else
+#  LOG_FILE="/var/log/brass.log"
+#fi
+#
+#if [[ -f "${LOG_FILE}" ]]; then
+#  mv "${LOG_FILE}" "${LOG_FILE}.1"
+#fi
+#
+#exec 3>&1 4>&2
+#trap 'exec 2>&4 1>&3' 0 1 2 3
+#exec 1> >(tee "${LOG_FILE}") 2>&1
+#
+#if [[ -n "${CI-}" ]]; then
+#  SYSTEM_FORCE="true"
+#  echo "NONINTERACTIVE ENABLED"
+#fi
 #>
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:J:' flag; do
+  while getopts 'c:g:j:C:Zvxs:iruzp:d:t:f:nlae:bqhyg' flag; do
     case "${flag}" in
-    # YAML Config Functions
-      c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
-      C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
-      g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
-      j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
-      J) APP_DIR="$OPTARG"; dock_add;;
-      t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
-    # CLI System Functions
-      Z) system_runMode system; env_brew;; # Runs default system brew prefix
-      V) VERBOSE_OVERIDE="true";;
-      v) system_verbose yes;; # Shows verbose information
-      x) xcode_update yes;; # Checks and updates xcode if available
-      s) system_user "$OPTARG";; # Selects which user to run brew as
-      l) system_force yes;; # Force pushes through brass configuration
-      a) system_ifAdmin yes;; # Runs brew as
-      n) noWarnning="1";;
-    # CLI Brew Functions
+      c) cfg="$OPTARG"; file="yes"; run_config; exit;;
+      j) token="$OPTARG";;
+      g) cfg="$OPTARG"; url="yes"; run_config; exit;;
+      C) cfg="$@"; run_config; exit;;
+      Z) system_runMode system; env_brew;;
+      v) system_verbose yes;;
+      x) xcode_update yes;;
+      s) system_user "$OPTARG";;
       i) brew_install yes;;
       r) brew_uninstall yes;;
       u) brew_update yes;;
       z) brew_reset yes;;
-      e) brewDo "$OPTARG";;
-    # CLI Package Functions
       p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
-      P) PACKAGE="$OPTARG"; package_manage $PACKAGE;;
       d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
-      D) PACKAGE="$OPTARG"; package_unmanage $PACKAGE;;
-      M) package_update all;;
-      m) package_update show;;
-      U) package_update new;;
-      o) package_update outdated;;
-    # CLI Brass Functions
-      N) notify_update;;
+      n) noWarnning="1";;
+      l) system_force yes;;
+      a) system_ifAdmin yes;;
+      e) brewDo "$OPTARG";;
       b) brass_debug;;
       q) brass_update yes;;
-      Q) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
-    # CLI Help Functions
       g) flags;;
       y) yaml;;
       h) help;;
@@ -75,7 +72,6 @@ script_check() {
   if [ $OPTIND -eq 1 ]; then system_user; brewDo "$@"; fi
 }
 say() {
-  printf "$(date): $@" >> "${LOG_FILE}"
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "$@"
   fi
@@ -92,14 +88,6 @@ user_command() {
   else
     sudo_check "to run as another user"
     /usr/bin/sudo -i -u ${SYSTEM_USER} $@
-  fi
-}
-console_user_command() {
-  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
-      "$@"
-  else
-    sudo_check "to run as another user"
-    /usr/bin/sudo -i -u "${CONSOLE_USER}" "$@"
   fi
 }
 countdown() {
@@ -125,29 +113,27 @@ warning() {
   fi
 }
 sudo_check() {
-  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
-    # Checks to see if sudo binary is executable
-    if [[ ! -x "/usr/bin/sudo" ]]
-    then
-      err "sudo binary is missing or not executable"
-    fi
+  # Checks to see if sudo binary is executable
+  if [[ ! -x "/usr/bin/sudo" ]]
+  then
+    err "sudo binary is missing or not executable"
+  fi
 
-    # Checks to see if script has sudo priviledges
-    if [ "$EUID" -ne 0 ];then
-    err "sudo priviledges are reqired $@"
-    fi
-
-  else
-    say "sudo priviledges are not required"
+  # Checks to see if script has sudo priviledges
+  if [ "$EUID" -ne 0 ];then
+  err "sudo priviledges are reqired $@"
   fi
 }
 sudo_disable() {
   system_user
-  SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
+  SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv")
   for str in ${SUDO_DIR[@]}; do
-    if [[ -z $(/usr/bin/sudo cat /etc/sudoers | grep "${str}" | grep "#brass") ]]; then
+    if [ -z $(/usr/bin/sudo cat /etc/sudoers | grep "$str" | grep "#brass") ]; then
       STR_BINARY=$(echo "$str" | awk -F"/" '{print $(NF)}')
+      say "Modifying /etc/sudoers to allow ${SYSTEM_USER} to run ${STR_BINARY} as root without a password\n"
       echo "${SYSTEM_USER}         ALL = (ALL) NOPASSWD: $str  #brass" | sudo EDITOR='tee -a' visudo > /dev/null
+    else
+      say "etc/sudoers already allows brass to run $str as root without a password\n"
     fi
   done
 }
@@ -180,6 +166,7 @@ run_config () {
     fi
     "${run}" "${str}"
   done < <(echo "${cfg}")''
+  sudo_reset
 }
 parse_yaml() {
   # Special thanks to https://stackoverflow.com/questions/5014632/how-can-i-parse-a-yaml-file-from-a-linux-shell-script
@@ -198,27 +185,12 @@ parse_yaml() {
       }
    }'
 }
-conf_get() {
-  if [[ "$@" == "yes" ]] && [[ ! "$EUID" -ne 0 ]]; then
-    if [[ -f "/Library/brass/brass.yaml" ]]; then
-      cfg="/Library/brass/brass.yaml"; file="yes"; run_config
-    elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
-      cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
-    fi
-  elif [[ "$@" == "VERBOSE_OVERIDE" ]] && [[ ! "$EUID" -ne 0 ]]; then
-    if [[ -f "/Library/brass/brass.yaml" ]]; then
-      cfg="/Library/brass/brass.yaml"; file="yes"; run_config
-    elif [[ -f "/Users/${CONSOLE_USER}/.brass/brass.yaml" ]]; then
-      cfg="/Users/${CONSOLE_USER}/.brass/brass.yaml"; file="yes"; run_config
-    fi
-  fi
-}
 #>
 
 #< System Functions
 env_system() {
   if [[ `uname -m` == 'arm64' ]]; then
-    BREW_PREFIX="/opt/homebrew"
+    BREW_PREFIX="/opt/homebrew" # changed from BREW_PATH
     BREW_BINARY="/opt/homebrew/bin/brew"
     if [[ ! -x "$BREW_BINARY" ]]; then unset BREW_BINARY; else
       BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
@@ -228,7 +200,7 @@ env_system() {
       BREW_BIN="/opt/homebrew/bin"
     fi
   else
-    BREW_PREFIX="/usr/local"
+    BREW_PREFIX="/usr/local" # changed from BREW_PATH
     BREW_BINARY="/usr/local/Homebrew/bin/brew"
     if [[ ! -x "${BREW_BINARY}" ]]; then unset BREW_BINARY; else
       BREW_USER=$(ls -al "${BREW_BINARY}" | awk '{ print $3 }')
@@ -277,71 +249,46 @@ system_force() {
   fi
 }
 system_user() {
-  # Skips function if user is already specified
-  if [[ "${SYSTEM_USER_RAN}" != 1 ]]; then
-    # Checks to see if a user has been specified
-    if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
-      if [[ "${@}" ]]; then
-        say "Continuing as ${@}\n"
-        SYSTEM_USER="${@}"
-      elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
-        say "No user specified. Continuing as ${CONSOLE_USER}\n"
-        SYSTEM_USER="${CONSOLE_USER}"
-      elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
-        say "System user is: ${SYSTEM_USER}\n"
-      fi
-    elif [[ -z "${SYSTEM_USER}" ]]; then
+  # Checks to see if a user has been specified
+  if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
+    if [[ "${@}" ]]; then
+      say "Continuing as ${@}\n"
+      SYSTEM_USER="${@}"
+    elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
       say "No user specified. Continuing as ${CONSOLE_USER}\n"
       SYSTEM_USER="${CONSOLE_USER}"
-    else
+    elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
       say "System user is: ${SYSTEM_USER}\n"
     fi
-
-    # Checks to see if the specified user is present
-    if id "${SYSTEM_USER}" &>/dev/null; then
-      say "System user found: ${SYSTEM_USER}\n"
-    else
-      say "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
-      sudo_check "to run brew as another user"
-      system_user_make
-      # err "${SYSTEM_USER} not found"
-    fi
-
-    # Checks to see if sudo priviledges are required
-    if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
-      sudo_check "to run brew as another user"
-    fi
-
-    # Checks to see if chache dir is set
-    BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
-    if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
-      sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
-    fi
-    SYSTEM_USER_RAN="1"
+  elif [[ -z "${SYSTEM_USER}" ]]; then
+    say "No user specified. Continuing as ${CONSOLE_USER}\n"
+    SYSTEM_USER="${CONSOLE_USER}"
+  else
+    say "System user is: ${SYSTEM_USER}\n"
   fi
 
-}
-system_user_make() {
-  # Makes new user's UID
-  uids=$( dscl . -list /Users UniqueID | awk '{print $2}' )
-  uid=504
-  while true; do
-    if ! echo $uids | grep -F -q -w "$uid"; then
-      break;
-    fi
-    uid=$(( $uid + 1))
-    gid=$(( $uid + 1))
-  done
-  sudo mkdir -p "/Users/${SYSTEM_USER}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}" UserShell /bin/bash
-  sudo dscl . -create "/Users/${SYSTEM_USER}" RealName "${SYSTEM_USER}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}" UniqueID "${uid}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}" PrimaryGroupID "${gid}"
-  sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
-  sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
-  sudo chown -R "${SYSTEM_USER}": "/Users/${SYSTEM_USER}"
-  say "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
+  # Checks to see if the specified user is present
+  if id "${SYSTEM_USER}" &>/dev/null; then
+    say "System user found: ${SYSTEM_USER}\n"
+  else
+    err "${SYSTEM_USER} not found"
+  fi
+
+  # Checks to see if sudo priviledges are required
+  if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
+    sudo_check "to run brew as another user"
+  fi
+
+  # Checks to see if chache dir is set
+  BREW_CACHE="/Users/${SYSTEM_USER}/Library/Caches/Homebrew"
+  if [[ -d "${BREW_CACHE}" ]] && [[ $(stat "${BREW_CACHE}" | awk '{print $5}') != "${SYSTEM_USER}" ]]; then
+    sudo chown -R "${SYSTEM_USER}": "${BREW_CACHE}"
+  fi
+
+#  if [[ -z $(env_user | grep "USER=${SYSTEM_USER}") ]]; then
+#    say "updaing user enviroment variables"
+#    export "${ENV_USER}"
+#  fi
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
@@ -353,11 +300,6 @@ system_ifAdmin() {
     fi
   else
     SYSTEM_IFADMIN="false"
-  fi
-}
-system_secret() {
-  if [[ -z "$@" ]]; then
-    token="${token}"
   fi
 }
 #>
@@ -508,6 +450,19 @@ brewRun() {
     eval "/usr/bin/sudo -i -u $SYSTEM_USER $BREW_PREFIX/bin/$@"
   fi
 }
+#brewRun() {
+#  if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
+#    if [ "$EUID" -ne 0 ] ;then
+#      "${BREW_BIN}"/$@
+#    else
+#      echo "HERE $BREW_BIN"
+#      /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
+#      exit 77
+#    fi
+#  else
+#    /usr/bin/sudo -i -u "${SYSTEM_USER}" $BREW_BIN/$@
+#  fi
+#}
 brew_check() {
   # Update brew enviroment variables
   system_user
@@ -525,7 +480,6 @@ brew_check() {
   if [[ -d "${BREW_PREFIX}" ]] && [[ "${BREW_USER}" != "${SYSTEM_USER}" ]]; then
     echo "${SYSTEM_USER} does not own ${BREW_PREFIX}"
     printf "${SYSTEM_USER} will take ownership of ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
-    sudo_disable
     user_command /usr/bin/sudo /usr/sbin/chown -R ${SYSTEM_USER}: ${BREW_PREFIX}
   fi
 }
@@ -589,7 +543,7 @@ brew_system_uninstall () {
 brew_update() {
   if [[ "$@" == "yes" ]]; then
     brew_check
-    say "brew_update: Enabled. Updating brew\n"
+    say "brew_update: Enabled.\nUpdating brew\n"
     brewDo update
   fi
 }
@@ -663,48 +617,12 @@ package_install() {
   env_package
   if [[ -z $(brewDo list | grep -w "$PACKAGE_INSTALL") ]]; then
     say "Installing $PACKAGE_INSTALL\n"
-    brewDo install $PACKAGE_INSTALL -f | grep -v "Operation not permitted"
+    brewDo install $PACKAGE_INSTALL -f
   else
     say "Updating $PACKAGE_INSTALL\n"
-    brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
+    brewDo upgrade $PACKAGE_INSTALL
   fi
   env_package
-}
-package_manage() {
-  PACKAGE_MANAGE="$@"
-  system_user
-  if [[ -z "${PACKAGE_MANAGE}" ]]; then
-    err "no package specified"
-  fi
-  if [[ -d "/Library/brass/pkg" ]]; then
-    while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
-    if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      say "adding "${PACKAGE_MANAGE}".yaml to /Library/brass/pkg/\n"
-      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > /Library/brass/pkg/"${PACKAGE_MANAGE}".yaml
-    else
-      say "${PACKAGE_MANAGE} is already managed\n"
-    fi
-  fi
-}
-package_unmanage() {
-  PACKAGE_MANAGE="$@"
-  system_user
-  if [[ -z "${PACKAGE_MANAGE}" ]]; then
-    err "no package specified"
-  fi
-  if [[ -d "/Library/brass/pkg" ]]; then
-    while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
-    if [[ ! -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      say "removing "${PACKAGE_MANAGE}".yaml to /Library/brass/pkg/\n"
-      rm /Library/brass/pkg/"${PACKAGE_MANAGE}".yaml
-    else
-      say "${PACKAGE_MANAGE} is already managed\n"
-    fi
-  fi
 }
 package_uninstall() {
   if [[ -z "${PACKAGE_UNINSTALL}" ]]; then
@@ -719,100 +637,6 @@ package_uninstall() {
   env_package
   brewDo uninstall "${PACKAGE_UNINSTALL}"
   env_package
-}
-package_update() {
-  system_user
-  sudo_disable
-  if [[ "$@" == "all" ]]; then
-    package_all
-  elif [[ "$@" == "show" ]]; then
-    package_show
-  elif [[ "$@" == "outdated" ]]; then
-    package_outdated
-  elif [[ "$@" == "new" ]]; then
-    package_new
-  fi
-}
-package_outdated() {
-  if [[ -d "/Library/brass/pkg" ]]; then
-    while IFS= read -r LINE; do
-      PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
-    PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
-    PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
-    while IFS= read -r LINE; do
-      if [[ " ${PKG_OUTDATED[*]} " =~ "${LINE}" ]]; then
-        PKG_MANAGED_OUTDATED="${PKG_MANAGED_OUTDATED} ${LINE}"
-      fi
-    done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
-    if [[ -z "${PKG_MANAGED}" ]] && [[ -z "${PKG_OUTDATED}" ]]; then
-      say "No managed packages found\n"
-    elif [[ -z "${PKG_OUTDATED}" ]]; then
-      printf "All packages are up to date\n"
-    elif [[ ! -z "${PKG_OUTDATED}" ]]; then
-      printf "Package updates available\n"
-    else
-      err "an error has occured\n"
-    fi
-  fi
-}
-package_all() {
-  if [[ -d "/Library/brass/pkg" ]]; then
-    if [[ $(package_outdated) != "All packages are up to date" ]]; then
-     while IFS= read -r LINE; do
-       PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-       cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
-     done < <(ls /Library/brass/pkg)
-   else
-     say "No package updates available\n"
-   fi
-  fi
-}
-package_show() {
-  if [[ -d "/Library/brass/pkg" ]]; then
-    while IFS= read -r LINE; do
-      PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
-    PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
-    PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
-    while IFS= read -r LINE; do
-      if [[ " ${PKG_OUTDATED[*]} " =~ "${LINE}" ]]; then
-        PKG_MANAGED_OUTDATED="${PKG_MANAGED_OUTDATED} ${LINE}"
-      fi
-    done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
-    if [[ -z "${PKG_MANAGED}" ]]; then
-      say "No managed packages found\n"
-    elif [[ -z "${PKG_OUTDATED}" ]]; then
-      printf "### All packages are up to date ###\n"
-      printf "${PKG_MANAGED}\n" | tr ' ' '\n' | sed '/^[[:space:]]*$/d'
-      printf "###################################\n"
-    elif [[ ! -z "${PKG_OUTDATED}" ]]; then
-      printf "### Outdated Packages ###\n"
-      printf "${PKG_OUTDATED}\n" | tr ' ' '\n' | sed '/^[[:space:]]*$/d'
-      printf "#########################\n"
-    else
-      err "an error has occured\n"
-    fi
-  fi
-}
-package_new() {
-  if [[ -d "/Library/brass/pkg" ]]; then
-    while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
-    PKG_INSTALLED="$(brewDo list | grep -v "==>")"
-    PKG_DIF=$(echo ${PKG_MANAGED[@]} ${PKG_INSTALLED[@]} ${PKG_INSTALLED[@]} | tr ' ' '\n' | sort | uniq -u)
-    if [[ -z "${PKG_DIF}" ]]; then
-      printf "There are no new packages to manage.\n"
-    else
-      echo "${PKG_DIF}"
-      while IFS= read -r LINE; do
-        if [[ " ${PKG_MANAGED[@]} " =~ " ${LINE} " ]]; then
-          brewDo install "${LINE}" -f
-        fi
-      done < <(echo "$PKG_DIF" )
-    fi
-  fi
 }
 #>
 
@@ -877,153 +701,28 @@ notify_allowCancel() {
     notify_buttons="\"okay\", \"not now\""
   fi
 }
-notify_update() {
-  if [[ ! -d /Library/Application\ Support/Dialog ]]; then
-    sudo_check "for swiftDialog\n"
-    env_brew
-    if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
-      say "${BREW_PREFIX}/install-tmp found, removing."
-      rm -r "${BREW_PREFIX}/install-tmp"
+notify_run() {
+  notify_input=$(/usr/bin/osascript<<-EOF
+    tell application "System Events"
+    activate
+    set myAnswer to button returned of (display dialog "$notify_dialog" buttons {$notify_buttons} giving up after $notify_timeout with title "$notify_title" with icon $notify_icon)
+    end tell
+    return myAnswer
+    EOF)
+    if [[ $notify_input == "not now" ]]; then
+      err "user canceled"
     fi
-    say "creating ${BREW_PREFIX}/install-tmp"
-    mkdir -p "${BREW_PREFIX}/install-tmp"
-    REPO='bartreardon/swiftDialog'
-    URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
-    PKG=$(echo $URL | awk -F"/" '{print $NF}')
-    say "Downloading swiftDialog"
-    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
-    say "Installing swiftDialog"
-    /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
-    say "cleaning brew_depends\n"
-    rm -r "${BREW_PREFIX}/install-tmp"
-  fi
-
-  if [[ -f /Library/brass/notify.yaml ]]; then
-    PKG_STATUS="$(package_update outdated)"
-    if [[ "${PKG_STATUS}" == "No managed packages found" ]] || [[ "${PKG_STATUS}" == "All packages are up to datee" ]]; then
-      say "Package update not required\n"
-    else
-      echo "I SEE IT"
-      cfg="/Library/brass/notify.yaml"; file="yes"; run_config
-      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "${notify_title}" -m "${notify_dialog}\n\n${PKG_STATUS}" --alignment center -i "${notify_iconPath}" --iconsize 90 --selecttitle "When would you like to update?" --selectvalues "Now,Remind me in 15 minutes" --selectdefault "Now" | grep "When would you like to update?" | head -n 1 | awk -F ": " '{print $2}')"
-      if [[ -z "${DIALOG_REBOOT}" ]]; then
-        err "error, nothing specified\n"
-      # Checks to see if "Now" option has been selected
-      elif [[ "${DIALOG_REBOOT}" == "Now" ]]; then
-        DIALOG_REBOOT="$(/usr/local/bin/dialog --button1disabled -t "Application Update Altert" -m "### Updating System Applications. \nPlease ensure that your workstation is plugged into a power source." --alignment center -i "${notify_iconPath}" --iconsize 90 --progress --progresstext "Updating System Applications")" & package_update all
-        killall Dialog
-        DIALOG_REBOOT="$(/usr/local/bin/dialog -t "Application Update Altert" -m "### System Application Update Complete. \nAffected applications may need to quit and reopen." --alignment center -i "${notify_iconPath}" --iconsize 90)"
-      fi
-    fi
-
-  else
-    PACKAGE_UPDATE_STATUS=$(package_update outdated)
-    if [[ "${PACKAGE_UPDATE_STATUS}" != "All packages are up to date" ]]; then
-      say "All packages are up to date\n"
-    else
-      DIALOG_REBOOT="$(/usr/local/bin/dialog -t "test" -m "${PACKAGE_UPDATE_STATUS}" --alignment center)"
-    fi
-  fi
-}
-#>
-
-#< Conf Functions
-config_run() {
-  if id "${CONF_USER}" &>/dev/null; then
-    say "Config user found: ${CONF_USER}\n"
-  else
-    err "${CONF_USER} not found\n"
-  fi
-
-  if [[ ! -d "${CONF_DIR}" ]]; then
-    say "Configuration directory not found. Creating ${CONF_DIR}\n"
-    mkdir -p "${CONF_DIR}"
-  else
-    say "Configuration directory found.\n"
-  fi
-
-  if [[ ! -f "${CONF_FILE}" ]]; then
-    say "Configuation file not found. Creating ${CONF_FILE}\n"
-    touch "${CONF_FILE}"
-  else
-    say "Configuation file found. Overriding ${CONF_FILE}\n"
-  fi
-
-  printf "${CONF_CONTENTS}" > "${CONF_FILE}"
-  say "$(cat "${CONF_FILE}")\n"
-  chown -R "${CONF_USER}": "${CONF_DIR}"
-}
-
-config_user(){
-  eval "CONF_USER=$(echo ${@})"
-}
-
-config_file(){
-  eval "CONF_FILE=$(echo ${@})"
-  CONF_DIR="$(echo ${CONF_FILE} | awk -F'/' 'BEGIN {OFS = FS} {$NF=""}1')"
-}
-
-config_contents(){
-  eval "CONF_CONTENTS=$(echo ${@})"
-  config_run
-}
-#>
-
-#< Dock Functions
-dock_update() {
-  DOCKUTIL_BINARY="/notafile"
-  REPO='kcrawford/dockutil'
-  URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
-  PKG=$(echo $URL | awk -F"/" '{print $NF}')
-  if [[ ! -f "${DOCKUTIL_BINARY}" ]]; then
-    sudo_check "for dockutil\n"
-    env_brew
-    if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
-      say "${BREW_PREFIX}/install-tmp found, removing."
-      rm -r "${BREW_PREFIX}/install-tmp"
-    fi
-    say "creating ${BREW_PREFIX}/install-tmp"
-    mkdir -p "${BREW_PREFIX}/install-tmp"
-    say "Downloading ${PKG}"
-    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
-    say "Installing ${PKG}"
-    /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
-    say "cleaning brew_depends\n"
-    rm -r "${BREW_PREFIX}/install-tmp"
-  fi
-}
-
-dock_add() {
-  if [[ -z "$APP_DIR" ]]; then
-    APP_DIR="$@"
-  fi
-  console_user_command /usr/local/bin/dockutil --allhomes -a "$APP_DIR"
+    say "User user input: $notify_input\n"
+    unset dialog
 }
 #>
 
 #< Brass Functions
-brass_log() {
-  LOG_DATE=$(date +"%m-%d-%y")
-  if [ "$EUID" -ne 0 ]; then
-    LOG_FILE="/Users/${CONSOLE_USER}/.config/brass/log/brass_${LOG_DATE}.log"
-    LOG_DIR="/Users/${CONSOLE_USER}/.config/brass/log"
-  else
-    LOG_FILE="/Library/brass/log/brass_${LOG_DATE}.log"
-    LOG_DIR="/Library/brass/log"
-  fi
-  if [[ ! -d "${LOG_DIR}" ]]; then
-    mkdir -p "${LOG_DIR}"
-  fi
-  if [[ ! -f "${LOG_FILE}" ]]; then
-    touch "${LOG_FILE}"
-  fi
-  printf "$(date): $@\n" >> "${LOG_FILE}"
-}
 brass_update() {
   if [[ "$@" == "yes" ]]; then
     BRASS_BINARY="/usr/local/bin/brass"
     BRASS_DATA=$(cat "${BRASS_BINARY}")
-    BRASS_GET=$(curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}")
+    BRASS_GET=$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)
     BRASS_DIF=$(echo ${BRASS_GET[@]} ${BRASS_DATA[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${BRASS_DIF}" ]]; then
       printf "brass is up to date.\n"
@@ -1035,22 +734,9 @@ brass_update() {
 }
 brass_upgrade() {
   sudo_check "to install brass"
-  curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
+  curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh --output /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
   say "install complete.\n"
-}
-system_branch() {
-  BRASS_BRANCH="$@"
-  brass_changeBranch
-}
-brass_changeBranch() {
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
-  BRASS_CONF_BRANCH=$(cat /Library/brass/brass.yaml | grep branch: | awk -F'branch: ' '{print $2}')
-  if [[ "${BRASS_BRANCH}" != "${BRASS_CONF_BRANCH}" ]]; then
-    BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" /Library/brass/brass.yaml)
-    echo "${BRASS_CONF}" > /Library/brass/brass.yaml
-  fi
-  brass_update yes
 }
 brass_debug() {
   env_brew
@@ -1098,7 +784,6 @@ brass_debug() {
 #>
 
 #< Script Logic
-brass_log "#### BRASS START ####"
 if [[ -z $@ ]]; then
   if [[ ! -x /usr/local/bin/brass ]]; then
     printf "Installing brass to /usr/local/bin/brass Press ctrl+c to cancel. Timeout:  "; countdown
@@ -1113,16 +798,11 @@ if [[ -z $@ ]]; then
   sudo_reset
   exit
 fi
-if [[ ! -d /Library/brass/pkg ]]; then
-  mkdir -p /Library/brass/pkg
-fi
 # Checks to see if xcode CommandLineTools is installed
 if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 system_runMode local
-conf_get yes
-script_check "$@"
+script_check $@
 sudo_reset
-brass_log "##### BRASS END #####\n"
 #>
