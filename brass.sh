@@ -969,7 +969,6 @@ config_contents(){
 }
 #>
 
-<<<<<<< HEAD
 #< Dock Functions
 dock_update() {
   DOCKUTIL_BINARY="/notafile"
@@ -1002,8 +1001,6 @@ dock_add() {
 }
 #>
 
-=======
->>>>>>> ac184dc9212ff915f7a4e2700464c950a6ece409
 #< Brass Functions
 brass_log() {
   LOG_DATE=$(date +"%m-%d-%y")
