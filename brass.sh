@@ -27,13 +27,14 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:' flag; do
+  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:J:' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
       C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
       g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
       j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
+      J) APP_DIR="$OPTARG"; dock_add;;
       t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
     # CLI System Functions
       Z) system_runMode system; env_brew;; # Runs default system brew prefix
@@ -91,6 +92,14 @@ user_command() {
   else
     sudo_check "to run as another user"
     /usr/bin/sudo -i -u ${SYSTEM_USER} $@
+  fi
+}
+console_user_command() {
+  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
+      "$@"
+  else
+    sudo_check "to run as another user"
+    /usr/bin/sudo -i -u "${CONSOLE_USER}" "$@"
   fi
 }
 countdown() {
@@ -960,6 +969,41 @@ config_contents(){
 }
 #>
 
+<<<<<<< HEAD
+#< Dock Functions
+dock_update() {
+  DOCKUTIL_BINARY="/notafile"
+  REPO='kcrawford/dockutil'
+  URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
+  PKG=$(echo $URL | awk -F"/" '{print $NF}')
+  if [[ ! -f "${DOCKUTIL_BINARY}" ]]; then
+    sudo_check "for dockutil\n"
+    env_brew
+    if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
+      say "${BREW_PREFIX}/install-tmp found, removing."
+      rm -r "${BREW_PREFIX}/install-tmp"
+    fi
+    say "creating ${BREW_PREFIX}/install-tmp"
+    mkdir -p "${BREW_PREFIX}/install-tmp"
+    say "Downloading ${PKG}"
+    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
+    say "Installing ${PKG}"
+    /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
+    say "cleaning brew_depends\n"
+    rm -r "${BREW_PREFIX}/install-tmp"
+  fi
+}
+
+dock_add() {
+  if [[ -z "$APP_DIR" ]]; then
+    APP_DIR="$@"
+  fi
+  console_user_command /usr/local/bin/dockutil --allhomes -a "$APP_DIR"
+}
+#>
+
+=======
+>>>>>>> ac184dc9212ff915f7a4e2700464c950a6ece409
 #< Brass Functions
 brass_log() {
   LOG_DATE=$(date +"%m-%d-%y")
@@ -1081,7 +1125,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
 fi
 system_runMode local
 conf_get yes
-script_check $@
+script_check "$@"
 sudo_reset
 brass_log "##### BRASS END #####\n"
 #>
