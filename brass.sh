@@ -1,4 +1,4 @@
- #!/bin/bash
+#!/bin/bash
 
 #< Enviroment variables
 # brass_url - brass script URL
@@ -971,7 +971,11 @@ config_contents(){
 
 #< Dock Functions
 dock_update() {
+<<<<<<< HEAD
+  DOCKUTIL_BINARY="/usr/local/bin/dockutil"
+=======
   DOCKUTIL_BINARY="/notafile"
+>>>>>>> 685ac707a0cbd55c94c60eb740fc9d577509a7a2
   REPO='kcrawford/dockutil'
   URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
   PKG=$(echo $URL | awk -F"/" '{print $NF}')
@@ -994,6 +998,10 @@ dock_update() {
 }
 
 dock_add() {
+<<<<<<< HEAD
+  dock_update
+=======
+>>>>>>> 685ac707a0cbd55c94c60eb740fc9d577509a7a2
   if [[ -z "$APP_DIR" ]]; then
     APP_DIR="$@"
   fi
