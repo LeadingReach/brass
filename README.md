@@ -1,5 +1,5 @@
 # brass
-### Brew As Script
+### **B**rew **AS** **S**cript
 
 brass is a utility designed to run brew on endpoints with multiple users.
 
@@ -10,8 +10,16 @@ This script has only been tested on macOS 12
 ## Installation
 
 ```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh)"
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/LeadingReach/brass/brass-dev/brass.sh)"
 ```
+
+## Change brass versions
+You can swap between different brass branches on the fly
+```bash
+sudo brass -Q "brass-dev"
+sudo brass -Q "brass-local"
+```
+
 
 ## Basic Usage
 brass can act as a 1 to 1 stand in for brew. Use any brew command after brass and it will run brew in a user specific prefix.
@@ -27,10 +35,10 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
 ```
 
 ### brass can use its own flags to specify which user should run brew.
-### When using brass flags, the standard brew commands such as install and info no longer work.
+When using brass flags, the standard brew commands such as install and info no longer work. You may use the -e flag to use standard brew commands. You can use the -v flag to show verbose information
 
 ```bash    
-  user@mac$ sudo brass -s admin
+  user@mac$ sudo brass -vs admin
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -38,7 +46,15 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
 
 
   # Install a package as admin
-  user@mac$ sudo brass -s admin -p sl
+  user@mac$ sudo brass -vs admin -p sl
+
+    System user found: admin
+    User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
+    Installing sl
+    done
+
+  # Install a package as admin using brew commands
+  user@mac$ sudo brass -vs admin -e install sl
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -46,7 +62,7 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
     done
 
   # Uninstall a package as admin
-  user@mac$ sudo brass -s admin -d sl
+  user@mac$ sudo brass -vs admin -d sl
 
     System user found: admin
     User Mode Enabled: Brew binary is located at /Users/admin/.homebrew/bin/brew
@@ -54,10 +70,10 @@ brass can act as a 1 to 1 stand in for brew. Use any brew command after brass an
     done
 
   # Update xcode and brew, then install package sl as user admin with debug information
-  user@mac$ sudo brass -s admin -xup sl -b
+  user@mac$ sudo brass -vs admin -xup sl -b
 ```
 ### brass has the ability to manage the default homebrew prefix.
-```
+``` bash
   # Install a package as admin with the default homebrew prefix
   user@mac$ sudo brass -Zs admin -p sl
 
@@ -357,6 +373,48 @@ brassconf.yaml example:
       timeout: 10 | blank=10        # how long the notification will stay up until the script contines.
       allowCancel: yes | blank/no   # this will allow the user to stop brass at the time of the notification. Good for delaying updates.
 ```
+###  Brass system configuration
+A brass.yaml configuration file can be stored in the brass system directory.
+```
+/Library/brass
+```
+This configuration file will apply to all brass commands by default unless over ridden by a command or package configuration file.
+#### Example brass.yaml
+```
+system:
+  secret:
+  runMode: local
+  verbose: yes
+  user: lcadmin
+  ifAdmin: no
+  force: yes
+
+brass:
+  update: yes
+  debug: yes
+```
+### brass.yaml with notes
+```
+system:
+  secret: *github auth token to pull configuration files from git*
+  runMode: local # specifis that brass should use the default system brew prefix
+  verbose: yes # Shows log fies
+  user: admin # the user that will run brew commands
+  ifAdmin: no # brass will ise the admin user reguardless of the system user's admin status
+  force: yes # brass confguration will be applied if there are any comflics.
+
+brass:
+  update: yes # checks for brass update
+  debug: yes # shows debug information
+```
+### Using brass to manage packages across several endpoints
+brass can be used to install, manage, and update brew packages across several endpoints. There are very many ways to do so using and MDM like Jamf or JumpCloud. The method I perfer pushes packages that contain yaml configuration profiles to the /Library/brass/pkg folder and then runs brass to install new packages.
+#### Work flow example
+1) Create a package using software similar to Jamf Composer or KosalaHerath/macos-installer-builder that contains package yaml file(s) in /Library/brass/pkg
+2) Use your MDM to distribute these packages to the intended endpoints
+3) Run ```brass -m ``` on intended endpoints to look for and install any new packages.
+
+You may also consider creating a policy that runs ```brass -M``` periodically to keep managed packages up to date.
 
 
 ###  -X: Xcode management utility.
