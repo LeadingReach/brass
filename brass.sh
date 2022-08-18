@@ -27,14 +27,15 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:J:' flag; do
+  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
       C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
       g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
       j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
-      J) APP_DIR="$OPTARG"; dock_add;;
+      w) APP_DIR="$OPTARG"; dock_add;;
+      W) APP_DIR="$OPTARG"; dock_remove;;
       t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
     # CLI System Functions
       Z) system_runMode system; env_brew;; # Runs default system brew prefix
@@ -971,15 +972,12 @@ config_contents(){
 
 #< Dock Functions
 dock_update() {
-<<<<<<< HEAD
   DOCKUTIL_BINARY="/usr/local/bin/dockutil"
-=======
-  DOCKUTIL_BINARY="/notafile"
->>>>>>> 685ac707a0cbd55c94c60eb740fc9d577509a7a2
   REPO='kcrawford/dockutil'
   URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
   PKG=$(echo $URL | awk -F"/" '{print $NF}')
   if [[ ! -f "${DOCKUTIL_BINARY}" ]]; then
+    say "installing dockutil\n"
     sudo_check "for dockutil\n"
     env_brew
     if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
@@ -998,14 +996,21 @@ dock_update() {
 }
 
 dock_add() {
-<<<<<<< HEAD
   dock_update
-=======
->>>>>>> 685ac707a0cbd55c94c60eb740fc9d577509a7a2
   if [[ -z "$APP_DIR" ]]; then
     APP_DIR="$@"
   fi
+  say "adding to dock $APP_DIR\n"
   console_user_command /usr/local/bin/dockutil --allhomes -a "$APP_DIR"
+}
+
+dock_remove() {
+  dock_update
+  if [[ -z "$APP_DIR" ]]; then
+    APP_DIR="$@"
+  fi
+  say "removing from dock $APP_DIR\n"
+  console_user_command /usr/local/bin/dockutil --allhomes -r "$APP_DIR"
 }
 #>
 
