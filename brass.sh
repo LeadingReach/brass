@@ -47,16 +47,16 @@ script_check() {
       a) system_ifAdmin yes;; # Runs brew as
       n) noWarnning="1";;
     # CLI Brew Functions
-      i) brew_install yes;;
-      r) brew_uninstall yes;;
-      u) brew_update yes;;
-      z) brew_reset yes;;
-      e) brewDo "$OPTARG";;
+      i) brew_install yes;; # Installs brew
+      r) brew_uninstall yes;; # Uninstalls brew
+      u) brew_update yes;; # Updates brew
+      z) brew_reset yes;; # Uninstalls and reinstalls brew
+      e) brewDo "$OPTARG";; # Run brew command
     # CLI Package Functions
-      p) PACKAGE="$OPTARG"; package_install $PACKAGE;;
-      P) PACKAGE="$OPTARG"; package_manage $PACKAGE;;
-      d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;;
-      D) PACKAGE="$OPTARG"; package_unmanage $PACKAGE;;
+      p) PACKAGE="$OPTARG"; package_install $PACKAGE;; # Installs a package
+      P) PACKAGE="$OPTARG"; package_manage $PACKAGE;; # Adds app.yaml to /Library/pkg/pkg.yaml
+      d) PACKAGE="$OPTARG"; package_uninstall $PACKAGE;; # Uninstalls a package
+      D) PACKAGE="$OPTARG"; package_unmanage $PACKAGE;; # Removess app.yaml from /Library/pkg/pkg.yaml
       M) package_update all;;
       m) package_update show;;
       U) package_update new;;
@@ -535,18 +535,24 @@ brew_install() {
     system_user
     env_brew
     if [[ -x "${BREW_BINARY}" ]]; then
-      echo "brew is already installed to ${BREW_PREFIX}. Resetting brew. Press ctrl+c to cancel. Timeout:  "; countdown
+      SYSTEM_VEROBSE="yes"
+      say "brew is already installed to ${BREW_PREFIX}. Resetting brew.\n"
+      echo "Press ctrl+c to cancel. Timeout:  "; countdown
       BREW_RESET="yes"
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
+        say "Resetting local brew prefix\n"
         brew_uninstall
       else
+        say "Resetting system brew prefix\n"
         brew_system_uninstall
       fi
     else
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
+        say "Installing local brew prefix\n"
         user_command mkdir -p "${BREW_PREFIX}"
         user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
       else
+        say "Installing system brew prefix\n"
         brew_system_install
       fi
     fi
@@ -759,14 +765,11 @@ package_outdated() {
 }
 package_all() {
   if [[ -d "/Library/brass/pkg" ]]; then
-    if [[ $(package_outdated) != "All packages are up to date" ]]; then
      while IFS= read -r LINE; do
        PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+       say "Checking for ${LINE} updates\n"
        cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
      done < <(ls /Library/brass/pkg)
-   else
-     say "No package updates available\n"
-   fi
   fi
 }
 package_show() {
