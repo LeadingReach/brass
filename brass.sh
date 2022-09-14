@@ -27,15 +27,13 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
-  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:' flag; do
+  while getopts 'c:g:j:C:ZvVxs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:L' flag; do
     case "${flag}" in
     # YAML Config Functions
       c) cfg="$OPTARG"; file="yes"; run_config; exit;; # Option to run brass from config yaml file
-      C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
+      #C) cfg="$@"; run_config; exit;; # Option to run yaml functions directly from the CLI
       g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
       j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
-      w) APP_DIR="$OPTARG"; dock_add;;
-      W) APP_DIR="$OPTARG"; dock_remove;;
       t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
     # CLI System Functions
       Z) system_runMode system; env_brew;; # Runs default system brew prefix
@@ -61,11 +59,16 @@ script_check() {
       m) package_update show;;
       U) package_update new;;
       o) package_update outdated;;
+      C) package_installer "$OPTARG";;
+      L) SHOW="true";;
     # CLI Brass Functions
       N) notify_update;;
       b) brass_debug;;
       q) brass_update yes;;
       Q) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
+      O) dock_update;;
+      w) APP_DIR="$OPTARG"; dock_add;;
+      W) APP_DIR="$OPTARG"; dock_remove;;
     # CLI Help Functions
       g) flags;;
       y) yaml;;
@@ -83,20 +86,21 @@ say() {
 }
 err() {
   printf '%s\n' "$1" >&2
+  printf "$(date): ERROR: $@" >> "${LOG_FILE}"
   brass_debug
   sudo_reset
   exit 77
 }
 user_command() {
-  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
-      $@
+  if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
+      "$@"
   else
     sudo_check "to run as another user"
-    /usr/bin/sudo -i -u ${SYSTEM_USER} $@
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" $@
   fi
 }
 console_user_command() {
-  if [[ $CONSOLE_USER == ${SYSTEM_USER} ]]; then
+  if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
       "$@"
   else
     sudo_check "to run as another user"
@@ -499,7 +503,6 @@ brewDo() {
 brewRun() {
   env_brew
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
-    echo "HERE $BREW_BINARY $BREW_PREFIX"
     if [ "$EUID" -ne 0 ] ;then
       eval "$BREW_PREFIX/bin/$@"
     else
@@ -640,24 +643,15 @@ brew_run() {
 
 #< Package Functions
 env_package() {
-  echo"disabled\n" &> /dev/null
-#  if [[ -z $(ls "${BREW_PREFIX}/bin" | grep "${PACKAGE}") ]]; then
-#    PACKAGE_DIR="$brew_caskroom/$PACKAGE"
-#    PACKAGE_NAME=$(brewDo info "${PACKAGE}" | grep .app | awk -F"(" '{print $1}' | grep -v Applications)
-#    PACKAGE_LINK="/Applications/${PACKAGE_NAME}"
-#    #PACKAGE_OWNDER=$(stat "${PACKAGE_LINK}" | awk '{print $5}')
-#  else
-#    PACKAGED_DIR="${BREW_PREFIX}/bin/${PACKAGE}"
-#    PACKAGE_NAME="${PACKAGE}"
-#    #PACKAGE_OWNDER=$(stat "${PACKAGE_DIR}" | awk '{print $5}')
-#    PACKAGE_LINK="${PACKAGE_DIR}"
-#  fi
-#
-#  if [[ -n "${PACKAGE_LINK}" ]]; then
-#    PACKAGE_INSTALLED="yes"
-#  else
-#    PACKAGE_INSTALLED="false"
-#  fi
+  if [ "$EUID" -ne 0 ];then
+    PKG_DIR="/Users/${CONSOLE_USER}/.config/brass/pkg/"
+  else
+    PKG_DIR="/Library/brass/pkg/"
+  fi
+
+  if [[ ! -d "${PKG_DIR}" ]]; then
+    mkdir -p "${PKG_DIR}"
+  fi
 }
 package_install() {
   PACKAGE_INSTALL="$@"
@@ -678,18 +672,20 @@ package_install() {
   env_package
 }
 package_manage() {
+  env_package
   PACKAGE_MANAGE="$@"
   system_user
   if [[ -z "${PACKAGE_MANAGE}" ]]; then
     err "no package specified"
   fi
-  if [[ -d "/Library/brass/pkg" ]]; then
+  env_package
+  if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls "${PKG_DIR}")
     if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      say "adding "${PACKAGE_MANAGE}".yaml to /Library/brass/pkg/\n"
-      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > /Library/brass/pkg/"${PACKAGE_MANAGE}".yaml
+      say "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
     else
       say "${PACKAGE_MANAGE} is already managed\n"
     fi
@@ -697,17 +693,18 @@ package_manage() {
 }
 package_unmanage() {
   PACKAGE_MANAGE="$@"
+  env_package
   system_user
   if [[ -z "${PACKAGE_MANAGE}" ]]; then
     err "no package specified"
   fi
-  if [[ -d "/Library/brass/pkg" ]]; then
+  if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls "${PKG_DIR}")
     if [[ ! -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      say "removing "${PACKAGE_MANAGE}".yaml to /Library/brass/pkg/\n"
-      rm /Library/brass/pkg/"${PACKAGE_MANAGE}".yaml
+      say "removing "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+      rm "${PKG_DIR}${PACKAGE_MANAGE}".yaml
     else
       say "${PACKAGE_MANAGE} is already managed\n"
     fi
@@ -741,10 +738,11 @@ package_update() {
   fi
 }
 package_outdated() {
-  if [[ -d "/Library/brass/pkg" ]]; then
+  env_package
+  if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
-      PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="${PKG_MANAGED} $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls "${PKG_DIR}")
     PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
     PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
     while IFS= read -r LINE; do
@@ -764,19 +762,28 @@ package_outdated() {
   fi
 }
 package_all() {
-  if [[ -d "/Library/brass/pkg" ]]; then
+  env_package
+  if [[ -d "${PKG_DIR}" ]]; then
+    if [[ "${SHOW}" == "true" ]]; then
+      /usr/local/bin/dialog -t "Application Update" -m "Updating applications. \n\nPlease wait for the update to complete." --alignment centre -i "/Library/Application Support/JAMF/bin/LR.png" --iconsize 40 --centreicon --button1text "Done" --button1disabled --progress --progresstext "Updating Applications" &
+    fi
      while IFS= read -r LINE; do
-       PKG_MANAGED="$(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+       PKG_MANAGED="$(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
        say "Checking for ${LINE} updates\n"
-       cfg="/Library/brass/pkg/${LINE}"; file="yes"; run_config
-     done < <(ls /Library/brass/pkg)
+       echo "progresstext: Updating ${LINE}" | awk -F".yaml" '{print $1}' >> /var/tmp/dialog.log
+       cfg="${PKG_DIR}${LINE}"; file="yes"; run_config
+     done < <(ls "${PKG_DIR}")
+     echo "progresstext: Finishing up" >> /var/tmp/dialog.log
+     /usr/bin/sudo -i -u "${CONSOLE_USER}" "/Users/${CONSOLE_USER}/.homebrew/bin/brew" upgrade
+     echo "progress: 100" >> /var/tmp/dialog.log; sleep 2; echo "button1: enable" >> /var/tmp/dialog.log; echo "progresstext: done" >> /var/tmp/dialog.log
   fi
 }
 package_show() {
-  if [[ -d "/Library/brass/pkg" ]]; then
+  env_package
+  if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
-      PKG_MANAGED="${PKG_MANAGED} $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="${PKG_MANAGED} $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls "${PKG_DIR}")
     PKG_MANAGED="$(echo "${PKG_MANAGED}" | tr '\n' '\ ' | tr -s ' ')"
     PKG_OUTDATED=$(SYSTEM_VEROBSE="FALSE"; brewDo outdated)
     while IFS= read -r LINE; do
@@ -800,10 +807,11 @@ package_show() {
   fi
 }
 package_new() {
-  if [[ -d "/Library/brass/pkg" ]]; then
+  env_package
+  if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
-      PKG_MANAGED="$PKG_MANAGED $(cat /Library/brass/pkg/"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-    done < <(ls /Library/brass/pkg)
+      PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+    done < <(ls "${PKG_DIR}")
     PKG_INSTALLED="$(brewDo list | grep -v "==>")"
     PKG_DIF=$(echo ${PKG_MANAGED[@]} ${PKG_INSTALLED[@]} ${PKG_INSTALLED[@]} | tr ' ' '\n' | sort | uniq -u)
     if [[ -z "${PKG_DIF}" ]]; then
@@ -816,6 +824,47 @@ package_new() {
         fi
       done < <(echo "$PKG_DIF" )
     fi
+  fi
+}
+package_installer() {
+  if [[ ! -d "/Library/brass/icns" ]]; then
+    mkdir -p "/Library/brass/icns"
+  fi
+  if [[ ! -f "/Library/brass/icns/download.icns" ]]; then
+    wget -P /Library/brass/icns https://findicons.com/icon/download/direct/93407/gnome_app_install/128/icns
+    mv "/Library/brass/icns/icns" "/Library/brass/icns/download.icns"
+  fi
+  APPNAME="${1}"
+  INSTALLNAME="Install ${APPNAME}"
+  DIR="/Applications/${INSTALLNAME}.app/Contents/MacOS";
+  if [[ -z $(brewDo list | grep "${APPNAME}") ]] && [[ -z $(/usr/bin/sudo -i -u "${CONSOLE_USER}" "/Users/${CONSOLE_USER}/.homebrew/bin/brew" list | grep "${APPNAME}") ]]; then
+    say "adding installer for ${APPNAME}\n"
+    if [ -d "/Applications/${INSTALLNAME}.app" ]; then
+      say "Installer already present. Overriding\n"
+      rm -r "/Applications/${INSTALLNAME}.app"
+    fi
+    mkdir -p "${DIR}"
+    mkdir -p "/Applications/${INSTALLNAME}.app/Contents/Resources/"
+    echo "#!/bin/bash
+    echo \"clear\" > /var/tmp/dialog.log
+    DIALOG_REBOOT="\$\(/usr/local/bin/dialog -t \"${APPNAME} Installer\" -m \"Installing ${APPNAME}. \\n\\nPlease wait for the installation to complete.\" --alignment centre -i \"/Library/Application Support/JAMF/bin/LR.png\" --iconsize 40 --centreicon --button1text \"Done\" --button1disabled --progress --progresstext \"Installing ${APPNAME}\"\)" &
+    /usr/local/bin/brass -P ${APPNAME} -p ${APPNAME}
+    echo \"button1: enable\" >> /var/tmp/dialog.log; echo \"progresstext: done\" >> /var/tmp/dialog.log; echo \"progress: 100\" >> /var/tmp/dialog.log
+    rm -r \"/Applications/${INSTALLNAME}.app\"" > "${DIR}"/"${INSTALLNAME}"
+    cp "/Library/brass/icns/download.icns" "/Applications/${INSTALLNAME}.app/Contents/Resources/${INSTALLNAME}.icns"
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+    <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\"
+    \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+    <plist version=\"1.0\">
+    <dict>
+     <key>CFBundleIconFile</key>
+     <string>${INSTALLNAME}.icns</string>
+    </dict>
+    </plist>" > "/Applications/${INSTALLNAME}.app/Contents/Info.plist"
+    chmod +x "${DIR}"/"${INSTALLNAME}"
+    chown -R "${CONSOLE_USER}": "/Applications/${INSTALLNAME}.app"
+  else
+    say "${APPNAME} is already installed\n"
   fi
 }
 #>
@@ -957,16 +1006,13 @@ config_run() {
   say "$(cat "${CONF_FILE}")\n"
   chown -R "${CONF_USER}": "${CONF_DIR}"
 }
-
 config_user(){
   eval "CONF_USER=$(echo ${@})"
 }
-
 config_file(){
   eval "CONF_FILE=$(echo ${@})"
   CONF_DIR="$(echo ${CONF_FILE} | awk -F'/' 'BEGIN {OFS = FS} {$NF=""}1')"
 }
-
 config_contents(){
   eval "CONF_CONTENTS=$(echo ${@})"
   config_run
@@ -997,7 +1043,6 @@ dock_update() {
     rm -r "${BREW_PREFIX}/install-tmp"
   fi
 }
-
 dock_add() {
   dock_update
   if [[ -z "$APP_DIR" ]]; then
@@ -1006,7 +1051,6 @@ dock_add() {
   say "adding to dock $APP_DIR\n"
   console_user_command /usr/local/bin/dockutil --allhomes -a "$APP_DIR"
 }
-
 dock_remove() {
   dock_update
   if [[ -z "$APP_DIR" ]]; then
