@@ -1,3 +1,5 @@
+verbose: level 2
+
 system:
   branch: brass-testing
   runMode: system
