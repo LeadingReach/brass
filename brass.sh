@@ -163,7 +163,7 @@ print_verbose() {
 }
 verbose() {
   if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]]; then
-    VERBOSE_MESSAGE=$(printf "${3}")
+    VERBOSE_MESSAGE="${3}"
     if [[ "${2}" == "0" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
       print_verbose
@@ -191,17 +191,21 @@ err() {
 }
 user_command() {
   if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
+    verbose level 2 "running $@ as ${SYSTEM_USER}"
       "$@"
   else
     sudo_check "to run as another user"
+    verbose level 2 "running $@ as ${SYSTEM_USER}"
     /usr/bin/sudo -i -u "${SYSTEM_USER}" $@
   fi
 }
 console_user_command() {
   if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
+    verbose level 2 "running $@ as ${SYSTEM_USER}"
       "$@"
   else
     sudo_check "to run as another user"
+    verbose level 2 "running $@ as ${CONSOLE_USER}"
     /usr/bin/sudo -i -u "${CONSOLE_USER}" "$@"
   fi
 }
@@ -237,15 +241,15 @@ sudo_check() {
 
     # Checks to see if script has sudo priviledges
     if [ "$EUID" -ne 0 ];then
-    err "sudo priviledges are reqired $@"
+      err "sudo priviledges are reqired $@"
     fi
-
   else
     verbose level 1 "sudo priviledges are not required\n"
   fi
 }
 sudo_disable() {
   system_user
+  verbose level 2 "disabling sudo requirements\n"
   SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
   for str in ${SUDO_DIR[@]}; do
     if [[ -z $(/usr/bin/sudo cat /etc/sudoers | grep "${str}" | grep "#brass") ]]; then
@@ -471,18 +475,21 @@ system_secret() {
 #< Xcode Functions
 env_xcode() {
   XCODE_PREFIX="/Library/Developer/CommandLineTools"
+  verbose level 2 "xcode commandlinetools prefix is ${XCODE_PREFIX}\n"
 }
 xcode_trick() {
   /usr/bin/sudo touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  verbose level 2 "added temp file for xcode commandlinetools update\n"
 }
 xcode_untrick() {
   /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  verbose level 2 "removed temp file for xcode commandlinetools update\n"
 }
 xcode_check_installed() {
   if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then env_xcode;
     if [[ ! -x "${XCODE_PREFIX}/usr/bin/git" ]]; then XCODE_INSTALLED="flase";
-      printf "Xcode CommandLineTools directory not defined\n"
-      printf "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
+      verbose level 1 "Xcode CommandLineTools directory not defined\n"
+      verbose level 1 "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
       if [[ -d "${XCODE_PREFIX}" ]]; then rm -r "${XCODE_PREFIX}"; fi
       xcode_install yes
     else XCODE_INSTALLED="yes";
@@ -515,7 +522,7 @@ xcode_install () {
     xcode_remove yes
     xcode_trick
     /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
-    printf "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+    verbose level 1 "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
     xcode_untrick
   fi
 }
@@ -536,10 +543,10 @@ xcode_update() {
     xcode_latest_version
     # Compares the two xcode versions to see if the curently installed version is less than the latest versoin
     if echo "${XCODE_INSTALLED_VERSION}" "${XCODE_LATEST_VERSION}" | awk '{exit !( $1 < $2)}'; then
-      printf "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
+      verbose level 1 "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
       xcode_install yes
     else
-      printf "xcode is up to date.\n"
+      verbose level 1 "xcode is up to date.\n"
     fi
   fi
 }
@@ -669,7 +676,6 @@ brew_install() {
   fi
 }
 brew_system_install () {
-  sudo_check "to install homebrew"
   sudo_disable
   if [[ -x "${BREW_BINARY}" ]]; then
     BREW_STATUS="installed"
