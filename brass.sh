@@ -670,6 +670,7 @@ brew_install() {
 }
 brew_system_install () {
   sudo_check "to install homebrew"
+  sudo_disable
   if [[ -x "${BREW_BINARY}" ]]; then
     BREW_STATUS="installed"
     printf "brew is already installed to ${BREW_PREFIX}. Resetting brew. Press ctrl+c to cancel. Timeout:  "; countdown
