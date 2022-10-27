@@ -323,6 +323,19 @@ conf_get() {
 #>
 
 #< System Functions
+env_path(){
+  if [[ ! -f "/etc/paths.d/brass" ]] || [[ -z $(cat /etc/paths.d/brass | grep "${BREW_BIN}") ]]; then
+    if [ "$EUID" -ne 0 ];then
+      verbose level 1 "sudo priviledges are reqired to add ${BREW_PREFIX} to path"
+    else
+      verbose level 1 "adding ${BREW_PREFIX}/bin to /etc/paths.d/brass"
+      sudo echo "${BREW_BIN}" > /etc/paths.d/brass
+      if [ -x /usr/libexec/path_helper ]; then
+        eval `/usr/libexec/path_helper -s`
+      fi
+    fi
+  fi
+}
 env_system() {
   if [[ `uname -m` == 'arm64' ]]; then
     BREW_PREFIX="/opt/homebrew"
@@ -345,6 +358,7 @@ env_system() {
       BREW_BIN="/usr/local/bin"
     fi
   fi
+  env_path
 }
 env_local() {
   BREW_PREFIX="/Users/${SYSTEM_USER}/.homebrew"
@@ -355,6 +369,7 @@ env_local() {
     BREW_CELLAR="/Users/${SYSTEM_USER}/.homebrew/Cellar"
     BREW_CASKROOM="/Users/${SYSTEM_USER}/.homebrew/Caskroom"
   fi
+  env_path
 }
 env_user() {
   ENV_USER=$(user_command printenv)
@@ -488,7 +503,7 @@ xcode_untrick() {
 xcode_check_installed() {
   if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then env_xcode;
     if [[ ! -x "${XCODE_PREFIX}/usr/bin/git" ]]; then XCODE_INSTALLED="flase";
-      verbose level 1 "Xcode CommandLineTools directory not defined\n"
+      verbose level 1 "Xcode CommandLineTools directory not defined"
       verbose level 1 "Installing Xcode CommandLineTools. ctrl+c to cancel:  "; countdown
       if [[ -d "${XCODE_PREFIX}" ]]; then rm -r "${XCODE_PREFIX}"; fi
       xcode_install yes
