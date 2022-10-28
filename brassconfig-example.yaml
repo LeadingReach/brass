@@ -1,16 +1,3 @@
-verbose: level 2
-
-system:
-  branch: brass-unstable
-  runMode: system
-  verbose: yes
-  user: lcadmin
-  ifAdmin: yes
-  force: yes
-
-package:
-  manage: wget
-
 system: 
   runMode: local
   verbose: yes
@@ -19,6 +6,7 @@ system:
   force: yes
 
 package:
+  manage: wget
   manage: google-chrome
   manage: google-drive
   manage: slack
