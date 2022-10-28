@@ -474,11 +474,9 @@ system_user_make() {
   sudo dscl . -create "/Users/${SYSTEM_USER}" PrimaryGroupID "${gid}"
   sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
-  old_gid=$(id -g)
-  /usr/bin/newgrp "${gid}"; /usr/bin/newgrp "${old_gid}"
-  sleep 15
   sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
   verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
+  brass_restart
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
@@ -1458,6 +1456,10 @@ brass_changeBranch() {
   fi
   brass_update yes
 }
+brass_restart() {
+  verbose level 1 "Restarting brass $(pwd)/$(basename "$0") ${SCRIPT_CHECK}"
+  exec "$(pwd)/$(basename "$0") ${SCRIPT_CHECK}" && exit
+}
 brass_kill() {
   brass remove --force $(brass list --formula)
   verbose level 1 "removing formula"
@@ -1524,12 +1526,10 @@ if [[ -z $@ ]]; then
     verbose level 1 "done.\n\n"
   fi
   if [[ "${BRASS_ENV}" == "enabled" ]]; then
-    verbose level 1 "doing it\n"
     package_all enabled
   fi
   printf "use brass -h for more infomation.\n"
   sudo_reset
-  exit
 fi
 if [[ ! -d "${BRASS_DIR}" ]]; then
   verbose level 1 "brass directory not found. Creating ${BRASS_DIR}\n"
