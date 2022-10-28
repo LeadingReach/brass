@@ -1,3 +1,6 @@
+brass:
+  update: yes
+
 system: 
   runMode: local
   verbose: yes
