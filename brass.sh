@@ -164,13 +164,16 @@ print_verbose() {
 verbose() {
   if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]]; then
     VERBOSE_MESSAGE="${3}"
+    printf "${VERBOSE_MESSAGE}\n"
     if [[ "${2}" == "0" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
+      printf "${VERBOSE_MESSAGE}\n"
       print_verbose
     fi
     if [[ "${2}" == "1" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
       if [[ "${VERBOSE_LEVEL}" == "1" ]] || [[ "${VERBOSE_LEVEL}" == "2" ]]; then
+        printf "${VERBOSE_MESSAGE}\n"
         print_verbose
       fi
     fi
@@ -324,12 +327,13 @@ conf_get() {
 
 #< System Functions
 env_path(){
-  if [[ ! -f "/etc/paths.d/brass" ]] || [[ -z $(cat /etc/paths.d/brass | grep "${BREW_BIN}") ]]; then
+  if [[ -z $(cat /etc/paths.d/brass | grep "${BREW_BIN}") ]]; then
+    verbose level 1 "${BREW_PREFIX} is not in path"
     if [ "$EUID" -ne 0 ];then
       verbose level 1 "sudo priviledges are reqired to add ${BREW_PREFIX} to path"
     else
       verbose level 1 "adding ${BREW_PREFIX}/bin to /etc/paths.d/brass"
-      sudo echo "${BREW_BIN}" > /etc/paths.d/brass
+      printf "${BREW_PREFIX}/bin\n" >> /etc/paths.d/brass
       if [ -x /usr/libexec/path_helper ]; then
         eval `/usr/libexec/path_helper -s`
       fi
@@ -386,6 +390,10 @@ system_verbose(){
   fi
 }
 system_runMode() {
+  if [[ -z "${SYSTEM_RUNMODE}" ]] || [[ "${SYSTEM_RUNMODE}" != "${@}" ]] ; then
+    unset SYSTEM_USER_RAN
+    unset SYSTEM_RUNMODE
+  fi
   if [[ "${@}" != "system" ]] || [[ -z "${@}" ]]; then
     SYSTEM_RUNMODE="local"
   else
@@ -810,6 +818,7 @@ package_manage() {
   if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
+      verbose level 1 "checking ${PKG_MANAGED}"
     done < <(ls "${PKG_DIR}")
     if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
       verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
@@ -1446,6 +1455,16 @@ brass_changeBranch() {
   fi
   brass_update yes
 }
+brass_kill() {
+  brass remove --force $(brass list --formula)
+  verbose level 1 "removing formula"
+  brewDo remove --force $(brewDo list --cask)
+  verbose level 1 "removing casks"
+  rm -r /opt/brass/pkg
+  verbose level 1 "removing pkg"
+  rm /etc/paths.d/brass
+  verbose level 1 "removing paths"
+}
 brass_debug() {
   env_brew
   if [[ "${BREW_STATUS}" == "not installed" ]]; then
@@ -1529,3 +1548,4 @@ script_check "$@"
 sudo_reset
 verbose level 1 "$(date): ##### BRASS END #####\n"
 #>
+
