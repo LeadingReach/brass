@@ -684,7 +684,11 @@ brew_install() {
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
         verbose level 1 "Installing local brew prefix\n"
         user_command mkdir -p "${BREW_PREFIX}"
-        user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
+        # user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
+        user_command git clone https://github.com/Homebrew/brew "${BREW_PREFIX}"
+        eval "$(${BREW_PREFIX}/bin/brew shellenv)"
+        "${BREW_PREFIX}"/bin/brew update --force
+        chmod -R go-w "$(${BREW_PREFIX}/bin/brew --prefix)/share/zsh"
       else
         verbose level 1 "Installing system brew prefix\n"
         brew_system_install
