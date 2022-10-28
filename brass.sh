@@ -437,6 +437,7 @@ system_user() {
       verbose level 1 "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
       sudo_check "to run brew as another user"
       system_user_make
+      exec /usr/local/bin/brass "${SCRIPT_CHECK}" && exit
       # err "${SYSTEM_USER} not found"
     fi
 
@@ -687,7 +688,7 @@ brew_install() {
         # user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
         user_command git clone https://github.com/Homebrew/brew "${BREW_PREFIX}"
         eval "$(${BREW_PREFIX}/bin/brew shellenv)"
-        "${BREW_PREFIX}"/bin/brew update --force
+        user_command "${BREW_PREFIX}"/bin/brew update --force
         chmod -R go-w "$(${BREW_PREFIX}/bin/brew --prefix)/share/zsh"
       else
         verbose level 1 "Installing system brew prefix\n"
@@ -1541,6 +1542,7 @@ fi
 system_runMode local
 conf_get yes
 verbose level 1 "$@"
+SCRIPT_CHECK="$@"
 script_check "$@"
 #< Verbose level
 #>
