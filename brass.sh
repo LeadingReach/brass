@@ -685,11 +685,6 @@ brew_install() {
         verbose level 1 "Installing local brew prefix\n"
         user_command mkdir -p "${BREW_PREFIX}"
         user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
-        if [[ `uname -m` == 'arm64' ]]; then
-          -arm64 brewDo update
-        else
-          -x86_64 brewDo update
-        fi
       else
         verbose level 1 "Installing system brew prefix\n"
         brew_system_install
@@ -1548,4 +1543,3 @@ script_check "$@"
 sudo_reset
 verbose level 1 "$(date): ##### BRASS END #####\n"
 #>
-
