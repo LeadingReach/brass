@@ -438,7 +438,6 @@ system_user() {
       verbose level 1 "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
       sudo_check "to run brew as another user"
       system_user_make
-      exec /usr/local/bin/brass "${SCRIPT_CHECK}" && exit
       # err "${SYSTEM_USER} not found"
     fi
 
