@@ -164,7 +164,7 @@ print_verbose() {
 verbose() {
   if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]]; then
     VERBOSE_MESSAGE="${3}"
-    printf "${VERBOSE_MESSAGE}\n"
+    pprint_verbose
     if [[ "${2}" == "0" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
       printf "${VERBOSE_MESSAGE}\n"
@@ -407,6 +407,7 @@ system_force() {
   else
     SYSTEM_FORCE="true"
     sudo_disable
+    brew_install
   fi
 }
 system_user() {
