@@ -1457,8 +1457,9 @@ brass_changeBranch() {
   brass_update yes
 }
 brass_restart() {
-  verbose level 1 "Restarting brass $(pwd)/$(basename "$0") ${SCRIPT_CHECK}"
-  exec "/bin/bash $(pwd)/$(basename "$0") ${SCRIPT_CHECK}" && exit
+  RESTART_COMMAND="/bin/bash $(pwd)/$(basename "$0") ${SCRIPT_CHECK}"
+  verbose level 1 "Restarting brass ${RESTART_COMMAND}"
+  exec ${RESTART_COMMAND} && exit
 }
 brass_kill() {
   brass remove --force $(brass list --formula)
