@@ -1441,6 +1441,7 @@ brass_upgrade() {
   sudo_check "to install brass"
   curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
+  BRASS_UPGRADED="yes"
   verbose level 1 "install complete.\n"
 }
 system_branch() {
@@ -1548,6 +1549,9 @@ conf_get yes
 verbose level 1 "$@"
 SCRIPT_CHECK="$@"
 script_check "$@"
+if [[ "${BRASS_UPGRADED}" == "yes" ]]; then
+  brass_restart
+fi
 #< Verbose level
 #>
 sudo_reset
