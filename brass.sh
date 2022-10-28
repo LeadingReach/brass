@@ -476,6 +476,7 @@ system_user_make() {
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
   sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
   verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
+  sleep 15
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
