@@ -473,7 +473,7 @@ system_user_make() {
   sudo dscl . -create "/Users/${SYSTEM_USER}" PrimaryGroupID "${gid}"
   sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
-  sudo chown -R "${SYSTEM_USER}": "/Users/${SYSTEM_USER}"
+  sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
   verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
 }
 system_ifAdmin() {
