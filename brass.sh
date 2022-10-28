@@ -164,7 +164,7 @@ print_verbose() {
 verbose() {
   if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]]; then
     VERBOSE_MESSAGE="${3}"
-    pprint_verbose
+    print_verbose
     if [[ "${2}" == "0" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
       printf "${VERBOSE_MESSAGE}\n"
@@ -475,9 +475,11 @@ system_user_make() {
   sudo dscl . -create "/Users/${SYSTEM_USER}" PrimaryGroupID "${gid}"
   sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
+  old_gid=$(id -g)
+  /usr/bin/newgrp "${gid}"; /usr/bin/newgrp "${old_gid}"
+  sleep 15
   sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
   verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
-  sleep 15
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
