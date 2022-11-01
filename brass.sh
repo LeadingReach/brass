@@ -820,15 +820,19 @@ package_manage() {
     while IFS= read -r LINE; do
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
       verbose level 1 "checking ${PKG_MANAGED}"
+      if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
+        verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+        printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
+        verbose level 1 "installing ${PACKAGE_MANAGE}\n"
+        package_install "${PACKAGE_MANAGE}"
+        PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | sed 's/.$//')"
+          if [[ ! -z "${PACKAGE_APP}" ]]; then
+            dock_add "/Applications/${PACKAGE_APP}"
+          fi
+      else
+        verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
+      fi
     done < <(ls "${PKG_DIR}")
-    if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
-      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
-      verbose level 1 "installing ${PACKAGE_MANAGE}\n"
-      package_install "${PACKAGE_MANAGE}"
-    else
-      verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
-    fi
   fi
 }
 package_unmanage() {
@@ -1549,9 +1553,6 @@ conf_get yes
 verbose level 1 "$@"
 SCRIPT_CHECK="$@"
 script_check "$@"
-if [[ "${BRASS_UPGRADED}" == "yes" ]]; then
-  brass_restart
-fi
 #< Verbose level
 #>
 sudo_reset
