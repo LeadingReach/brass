@@ -1562,7 +1562,7 @@ system_branch() {
   brass_changeBranch
 }
 brass_changeBranch() {
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-$BRASS_BRANCH/brass.sh"
   BRASS_CONF_BRANCH=$(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}')
   if [[ "${BRASS_BRANCH}" != "${BRASS_CONF_BRANCH}" ]]; then
     BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" ${BRASS_DIR}${BRASS_CONF_FILE})
