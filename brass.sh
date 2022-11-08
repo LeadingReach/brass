@@ -78,6 +78,11 @@ script_check() {
       h) help;;
       -)
           case "${OPTARG}" in
+            test=*) # Option to run brass from config yaml file
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                daemon_check -e --name="com.mess.test.run" --binary="/usr/local/bin/brass" --args="-u" --day=tuesday --hour=11 --minute="57" --config=enabled;;
+
             verbose-level=*) # Option to run brass from config yaml file
                 val=${OPTARG#*=}
                 VERBOSE_LEVEL=${OPTARG#*=}
@@ -820,19 +825,19 @@ package_manage() {
     while IFS= read -r LINE; do
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
       verbose level 1 "checking ${PKG_MANAGED}"
-      if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-        verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
-        printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
-        verbose level 1 "installing ${PACKAGE_MANAGE}\n"
-        package_install "${PACKAGE_MANAGE}"
-        PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | sed 's/.$//')"
-          if [[ ! -z "${PACKAGE_APP}" ]]; then
-            dock_add "/Applications/${PACKAGE_APP}"
-          fi
-      else
-        verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
-      fi
     done < <(ls "${PKG_DIR}")
+    if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
+      verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+      printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
+      verbose level 1 "installing ${PACKAGE_MANAGE}\n"
+      package_install "${PACKAGE_MANAGE}"
+      PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
+        if [[ ! -z "${PACKAGE_APP}" ]]; then
+          dock_add "/Applications/${PACKAGE_APP}"
+        fi
+    else
+      verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
+    fi
   fi
 }
 package_unmanage() {
@@ -1102,20 +1107,12 @@ gui_update() {
 #>
 
 #< Update Functions
-update() {
-  if [[ "${1}" == "package" ]] || [[ "${2}" == "package" ]]; then
-    # package_all enabled
-    verbose level 1 "Enabling package update"
-    daemon_file "com.brass.update.application.plist"
-    verbose level 2 "Updating ${DAEMON_FILE}"
-    daemon_run "/Users/carlpetry/dev/brass/brass.sh" "--config-command=package_all_enabled"
-  fi
-}
 update_gui() {
   if [[ "${1}" == "enabled" ]]; then
-    gui_update
-    daemon_config
-    daemon_reload
+    if [[ "${UPDATE}" == "application" ]]; then
+      gui_update
+      daemon_check -e --name="com.brass.update.application" --binary="/usr/local/bin/brass" --args="--config-command=package_all_enabled" --day="${UPDATE_DAY}" --hour="${UPDATE_HOUR}" --minute="${UPDATE_MINUTE}" --config=enabled
+    fi
   fi
 }
 update_system() {
@@ -1150,14 +1147,19 @@ update_system() {
    </plist>
   " > /Library/LaunchDaemons/
 }
+update_application() {
+  if [[ "${1}" == "enabled" ]]; then
+    UPDATE="application"
+  fi
+}
 update_day() {
-  daemon_day "${1}"
+  UPDATE_DAY="${1}"
 }
 update_hour() {
-  daemon_hour "${1}"
+  UPDATE_HOUR="${1}"
 }
 update_minute() {
-  daemon_minute "${1}"
+  UPDATE_MINUTE="${1}"
 }
 update_title() {
   gui_title "${@}"
@@ -1222,19 +1224,138 @@ update_delay() {
 #>
 
 #< Daemon Functions
-daemon_reload() {
-  verbose level 1 "Reloading launch daemon\n"
-  launchctl unload "${DAEMON_PATH}"
-  launchctl load "${DAEMON_PATH}"
+daemon_check() {
+  optspec="e-:"
+  while getopts "$optspec" flag; do
+    case "${flag}" in
+      e) verbose level 1 "daemon check run";;
+      -)
+          case "${OPTARG}" in
+              verbose-level=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  VERBOSE_LEVEL=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level "${VERBOSE_LEVEL}";;
+              name=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_name "${val}";;
+
+              binary=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_binary "${val}";;
+
+              args=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  DAEMON_ARGS=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_args "${val}";;
+
+              day=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_day "${val}";;
+
+              hour=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_hour "${val}";;
+
+              minute=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_minute "${val}";;
+
+              config=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  daemon_config "${val}";;
+
+              *)
+                  if [ "$OPTERR" = 1 ] && [ "${optspec:0:1}" != ":" ]; then
+                      echo "Unknown option --${OPTARG}" >&2
+                  fi
+                  ;;
+          esac;;
+      *)
+          if [ "$OPTERR" != 1 ] || [ "${optspec:0:1}" = ":" ]; then
+              echo "Non-option argument: '-${OPTARG}'" >&2
+          fi
+          ;;
+      *) help;;
+    esac
+  done
+  if [ $OPTIND -eq 1 ]; then exit; fi
 }
-daemon_run() {
+daemon_debug() {
+  DAEMON_CONF_DEBUG=$(echo "
+    <key>StandardOutPath</key>
+      <string>${LOG_DIR}/${DAEMON_FILE}-sout.log</string>
+    <key>StandardErrorPath</key>
+      <string>${LOG_DIR}/${DAEMON_FILE}-eout.log</string>
+    <key>RunAtLoad</key>
+    <true/>")
+}
+daemon_name() {
+  if [[ -z "$DAEMON_NAME" ]] && [[ -z "$@" ]] ; then
+    err "nothing specified\n"
+  else
+    if [[ -z "$DAEMON_NAME" ]]; then
+      DAEMON_NAME=$(echo "$@" | tr -d '"')
+    fi
+    DAEMON_FILE="${DAEMON_NAME}.plist"
+    DAEMON_PATH="/Library/LaunchDaemons/${DAEMON_FILE}"
+    DAEMON_ENV="UPDATE"
+    DAEMON_ENV_STATUS="enabled"
+    verbose level 2 "Daemon name:\t${DAEMON_NAME}"
+    verbose level 2 "Daemon file:\t${DAEMON_FILE}"
+    verbose level 1 "Daemon path:\t${DAEMON_PATH}"
+    daemon_debug
+    DAEMON_CONF_NAME=$(echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+    <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+    <plist version=\"1.0\">
+    <dict>
+      <key>Label</key>
+      <string>${DAEMON_NAME}</string>")
+    DAEMON_CONF_END=$(echo "
+    </dict>
+    </plist>")
+    DAEMON_CONF=$(echo "${DAEMON_CONF_NAME}${DAEMON_CONF_DEBUG}${DAEMON_CONF_END}")
+  fi
+}
+daemon_binary() {
   if [[ -z "${@}" ]] ; then
     err "no command specified\n"
   else
-    DAEMON_RUN=$(echo "${1}" | tr -d '"')
-    DAEMON_RUN_TWO=$(echo "${2}")
-    verbose level 2 "Daemon will run ${DAEMON_RUN} ${DAEMON_RUN_TWO}"
-
+    DAEMON_BINARY=$(echo "${1}" | tr -d '"')
+    verbose level 1 "Daemon binary:\t${DAEMON_BINARY}"
+    DAEMON_CONF_BINARY=$(echo "
+      <key>Program</key>
+        <string>${DAEMON_BINARY}</string>")
+    DAEMON_CONF=$(echo "${DAEMON_CONF_NAME}${DAEMON_CONF_BINARY}${DAEMON_CONF_DEBUG}${DAEMON_CONF_END}")
+  fi
+}
+daemon_args() {
+  if [[ -z "${@}" ]] ; then
+    err "no command specified\n"
+  else
+    DAEMON_ARGS=$(echo "${1}" | tr -d '"')
+    verbose level 1 "Daemon args:\t${DAEMON_ARGS}"
+    DAEMON_CONF_ARGS=$(echo "
+      <key>ProgramArguments</key>
+      <array>
+        <string>${DAEMON_BINARY}</string>
+        <string>${DAEMON_ARGS}</string>
+      </array>")
+      DAEMON_CONF=$(echo "${DAEMON_CONF_NAME}${DAEMON_CONF_BINARY}${DAEMON_CONF_ARGS}${DAEMON_CONF_DEBUG}${DAEMON_CONF_END}")
   fi
 }
 daemon_day() {
@@ -1258,7 +1379,7 @@ daemon_day() {
     else
       DAEMON_DAY=$(echo "$@")
     fi
-    verbose level 2 "Daemon set to run on day ${DAEMON_DAY}"
+    verbose level 1 "Daemon day:\t${DAEMON_DAY}"
   fi
 }
 daemon_hour() {
@@ -1266,65 +1387,53 @@ daemon_hour() {
     err "nothing specified\n"
   else
     DAEMON_HOUR=$(echo "$@" | tr -d '"')
-    verbose level 2 "Daemon set to run on hour ${DAEMON_HOUR}"
+    verbose level 1 "Daemon hour:\t${DAEMON_HOUR}"
   fi
 }
 daemon_minute() {
   if [[ -z "$@" ]] ; then
     err "nothing specified\n"
   else
-    DAEMON_MINUTE=$(echo "$@")
-    verbose level 2 "Daemon set to run on minute ${DAEMON_DAY}"
+    DAEMON_MINUTE=$(echo "$@" | tr -d '"')
+    verbose level 1 "Daemon minute:\t${DAEMON_MINUTE}"
+    daemon_time
   fi
 }
-daemon_file() {
-  if [[ -z "$DAEMON_FILE" ]] && [[ -z "$@" ]] ; then
-    err "nothing specified\n"
+daemon_time() {
+  if [[ -z "$DAEMON_DAY" ]] || [[ -z "$DAEMON_HOUR" ]] || [[ -z "$DAEMON_MINUTE" ]]; then
+    err "Daemon time variable missing"
   else
-    if [[ -z "$DAEMON_FILE" ]]; then
-      DAEMON_FILE=$(echo "$@" | tr -d '"')
-    fi
-    DAEMON_PATH="/Library/LaunchDaemons/${DAEMON_FILE}"
-    DAEMON_NAME=$(echo "$DAEMON_FILE" | awk -F".plist" '{print $1}')
-    DAEMON_ENV="UPDATE"
-    DAEMON_ENV_STATUS="enabled"
+    DAEMON_CONF_TIME=$(echo "
+      <key>StartCalendarInterval</key>
+          <array>
+            <dict>
+              <key>Weekday</key>
+              <integer>${DAEMON_DAY}</integer>
+              <key>Hour</key>
+              <integer>${DAEMON_HOUR}</integer>
+              <key>Minute</key>
+              <integer>${DAEMON_MINUTE}</integer>
+            </dict>
+          </array>")
+    DAEMON_CONF=$(echo "${DAEMON_CONF_NAME}${DAEMON_CONF_BINARY}${DAEMON_CONF_ARGS}${DAEMON_CONF_DEBUG}${DAEMON_CONF_TIME}${DAEMON_CONF_END}")
   fi
+}
+daemon_reload() {
+  verbose level 1 "Reloading launch daemon\n"
+  launchctl unload "${@}"
+  launchctl load "${@}"
 }
 daemon_config() {
-  verbose level 1 "configuring ${DAEMON_PATH}"
-    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-    <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-    <plist version=\"1.0\">
-    <dict>
-      <key>Label</key>
-      <string>${DAEMON_FILE}</string>
-      <key>Program</key>
-        <string>${DAEMON_RUN}</string>
-      <key>ProgramArguments</key>
-      <array>
-        <string>${DAEMON_RUN}</string>
-        <string>${DAEMON_RUN_TWO}</string>
-      </array>
-      <key>StandardOutPath</key>
-      <string>/Users/carlpetry/dev/brass/sout.txt</string>
-      <key>StandardErrorPath</key>
-      <string>/Users/carlpetry/dev/brass/eout.txt</string>
-      <key>RunAtLoad</key>
-      <false/>
-      <key>StartCalendarInterval</key>
-      <array>
-        <dict>
-            <key>Weekday</key>
-            <integer>${DAEMON_DAY}</integer>
-            <key>Hour</key>
-            <integer>${DAEMON_HOUR}</integer>
-            <key>Minute</key>
-            <integer>${DAEMON_MINUTE}</integer>
-        </dict>
-      </array>
-     </dict>
-     </plist>" > "${DAEMON_PATH}"
-    verbose level 2 "$(cat ${DAEMON_PATH})"
+  if [[ "${@}" == "enabled" ]]; then
+    echo "${DAEMON_CONF}" > "${DAEMON_PATH}"
+    if [[ $(/usr/bin/plutil "${DAEMON_PATH}") == "${DAEMON_PATH}: OK" ]]; then
+      verbose level 1 "Daemon check:\tPASS"
+      daemon_reload "${DAEMON_PATH}"
+    else
+      verbose level 1 "Daemon check:\tFAIL"
+      rm "${DAEMON_PATH}"
+    fi
+  fi
 }
 #>
 
@@ -1414,7 +1523,7 @@ brass_log() {
   LOG_DATE=$(date +"%m-%d-%y")
   if [ "$EUID" -ne 0 ]; then
     LOG_FILE="/Users/${CONSOLE_USER}/.config/brass/log/brass_${LOG_DATE}.log"
-    LOG_DIR="/Users/${CONSOLE_USER}/.config/brass/log"
+    LOG_DIR="/Users/${CONSOLE_USER}/.config/brass/log/"
   else
     LOG_FILE="${BRASS_DIR}log/brass_${LOG_DATE}.log"
     LOG_DIR="${BRASS_DIR}log"
