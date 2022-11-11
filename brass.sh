@@ -31,6 +31,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 #< Script Functions
 script_check() {
   optspec=":g:j:ZvVxcs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:L-:"
+  local OPTIND
   while getopts "$optspec" flag; do
     case "${flag}" in
     # YAML Config Functions
@@ -78,18 +79,12 @@ script_check() {
       h) help;;
       -)
           case "${OPTARG}" in
-            test=*) # Option to run brass from config yaml file
-                val=${OPTARG#*=}
-                opt=${OPTARG%=$val}
-                daemon_check -e --name="com.mess.test.run" --binary="/usr/local/bin/brass" --args="-u" --day=tuesday --hour=11 --minute="57" --config=enabled;;
 
             verbose-level=*) # Option to run brass from config yaml file
                 val=${OPTARG#*=}
                 VERBOSE_LEVEL=${OPTARG#*=}
                 opt=${OPTARG%=$val}
-                verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
-                file="yes"
-                run_config;;
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
 
             log)
                 val="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
@@ -100,7 +95,7 @@ script_check() {
                   val=${OPTARG#*=}
                   cfg=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   file="yes"
                   run_config;;
 
@@ -108,14 +103,14 @@ script_check() {
                   val=${OPTARG#*=}
                   cfg=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   eval "${cfg}";;
 
               config-url=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   cfg=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   url="yes"
                   run_config;;
 
@@ -123,14 +118,32 @@ script_check() {
                   val=${OPTARG#*=}
                   token=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2;;
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
 
               config-secret=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   secret=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   token=$(cat "${secret}");;
+
+              brew-reset=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                  brew_reset "${val}";;
+
+              update-version=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                  update_version "${val}";;
+
+              update-start=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                  update_start "${val}";;
 
               *)
                   if [ "$OPTERR" = 1 ] && [ "${optspec:0:1}" != ":" ]; then
@@ -163,28 +176,29 @@ say() {
 }
 print_verbose() {
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
-    printf "${VERBOSE_MESSAGE}\n"
+    printf "${VERBOSE_MESSAGE}\n" | tr -d '"'
   fi
 }
 verbose() {
-  if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]]; then
-    VERBOSE_MESSAGE="${3}"
-    print_verbose
-    if [[ "${2}" == "0" ]]; then
-      printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
-      printf "${VERBOSE_MESSAGE}\n"
-      print_verbose
+  if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]] || [[ "${2}" == "3" ]]; then
+    VERBOSE_LEVEL_SET="${2}"
+    VERBOSE_MESSAGE="\"${3}\""
+    if [[ "${VERBOSE_LEVEL_SET}" != "3" ]]; then
+      printf "$(date): ${VERBOSE_MESSAGE}\n" | tr -d '"' >> "${LOG_FILE}"
     fi
-    if [[ "${2}" == "1" ]]; then
-      printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
-      if [[ "${VERBOSE_LEVEL}" == "1" ]] || [[ "${VERBOSE_LEVEL}" == "2" ]]; then
-        printf "${VERBOSE_MESSAGE}\n"
+    if [[ "${2}" == "0" ]]; then
+      print_verbose
+    elif [[ "${VERBOSE_LEVEL_SET}" == "1" ]]; then
+      if [[ "${VERBOSE_LEVEL}" == "1" ]] || [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]]; then
         print_verbose
       fi
-    fi
-    if [[ "${2}" == "2" ]]; then
-      if [[ "${VERBOSE_LEVEL}" == "2" ]]; then
-        printf "$(date): ${VERBOSE_MESSAGE}\n" >> "${LOG_FILE}"
+    elif [[ "${VERBOSE_LEVEL_SET}" == "2" ]]; then
+        if [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]]; then
+          print_verbose
+        fi
+    elif [[ "${VERBOSE_LEVEL_SET}" == "3" ]]; then
+      if [[ "${VERBOSE_LEVEL}" == "3" ]]; then
+        printf "$(date): ${VERBOSE_MESSAGE}\n" | tr -d '"' >> "${LOG_FILE}"
         print_verbose
       fi
     fi
@@ -252,12 +266,12 @@ sudo_check() {
       err "sudo priviledges are reqired $@"
     fi
   else
-    verbose level 1 "sudo priviledges are not required\n"
+    verbose level 1 "sudo priviledges are not required"
   fi
 }
 sudo_disable() {
   system_user
-  verbose level 2 "disabling sudo requirements\n"
+  verbose level 3 "sudo status:\tDisabled"
   SUDO_DIR=("SETENV:/bin/ln" "SETENV:/usr/sbin/chown" "SETENV:/usr/sbin/chmod" "SETENV:/bin/launchctl" "SETENV:/bin/rm" "SETENV:/usr/bin/env" "SETENV:/usr/bin/xargs" "SETENV:/usr/sbin/pkgutil" "SETENV:/bin/mkdir" "SETENV:/bin/mv" "SETENV:/usr/bin/pkill")
   for str in ${SUDO_DIR[@]}; do
     if [[ -z $(/usr/bin/sudo cat /etc/sudoers | grep "${str}" | grep "#brass") ]]; then
@@ -267,7 +281,7 @@ sudo_disable() {
   done
 }
 sudo_reset() {
-  verbose level 1 "removing brass sudoers entries\n"
+  verbose level 3 "sudo status:\tEnabled"
   sed -i '' '/#brass/d' /etc/sudoers &> /dev/null
 }
 run_config () {
@@ -316,14 +330,13 @@ parse_yaml() {
 conf_get() {
   if [[ "$@" == "yes" ]] && [[ ! "$EUID" -ne 0 ]]; then
     if [[ -f "${BRASS_DIR}${BRASS_CONF_FILE}" ]]; then
+      verbose level 3 "brass config:\tsystem"
+      verbose level 3 "vvvv ${BRASS_DIR}${BRASS_CONF_FILE} vvvv"
       cfg="${BRASS_DIR}${BRASS_CONF_FILE}"; file="yes"; run_config
+      verbose level 3 "^^^^ ${BRASS_DIR}${BRASS_CONF_FILE} ^^^^"
     elif [[ -f "/Users/${CONSOLE_USER}/.brass/${BRASS_CONF_FILE}" ]]; then
-      cfg="/Users/${CONSOLE_USER}/.brass/${BRASS_CONF_FILE}"; file="yes"; run_config
-    fi
-  elif [[ "$@" == "VERBOSE_OVERIDE" ]] && [[ ! "$EUID" -ne 0 ]]; then
-    if [[ -f "${BRASS_DIR}${BRASS_CONF_FILE}" ]]; then
-      cfg="${BRASS_DIR}${BRASS_CONF_FILE}"; file="yes"; run_config
-    elif [[ -f "/Users/${CONSOLE_USER}/.brass/${BRASS_CONF_FILE}" ]]; then
+      verbose level 3 "brass config:\tlocal"
+      verbose level 3 "execute config:\t${BRASS_DIR}${BRASS_CONF_FILE}"
       cfg="/Users/${CONSOLE_USER}/.brass/${BRASS_CONF_FILE}"; file="yes"; run_config
     fi
   fi
@@ -395,13 +408,11 @@ system_verbose(){
   fi
 }
 system_runMode() {
-  if [[ -z "${SYSTEM_RUNMODE}" ]] || [[ "${SYSTEM_RUNMODE}" != "${@}" ]] ; then
-    unset SYSTEM_USER_RAN
-    unset SYSTEM_RUNMODE
-  fi
-  if [[ "${@}" != "system" ]] || [[ -z "${@}" ]]; then
+  if [[ "${1}" != "system" ]] || [[ -z "${@}" ]]; then
+    verbose level 1 "Run mode:\tlocal"
     SYSTEM_RUNMODE="local"
   else
+    verbose level 1 "Run mode:\tsystem"
     SYSTEM_RUNMODE="system"
   fi
 }
@@ -421,29 +432,29 @@ system_user() {
     # Checks to see if a user has been specified
     if [[ "${SYSTEM_IFADMIN}" != "yes" ]]; then
       if [[ "${@}" ]]; then
-        verbose level 1 "Continuing as ${@}\n"
+        verbose level 2 "Brass user:\t${@}"
         SYSTEM_USER="${@}"
       elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
-        verbose level 1 "No user specified. Continuing as ${CONSOLE_USER}\n"
+        verbose level 2 "No user specified. Continuing as ${CONSOLE_USER}"
         SYSTEM_USER="${CONSOLE_USER}"
       elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
-        verbose level 1 "System user is: ${SYSTEM_USER}\n"
+        verbose level 2 "System user is: ${SYSTEM_USER}"
       fi
     elif [[ -z "${SYSTEM_USER}" ]]; then
-      verbose level 1 "No user specified. Continuing as ${CONSOLE_USER}\n"
+      verbose level 2 "No user specified. Continuing as ${CONSOLE_USER}"
       SYSTEM_USER="${CONSOLE_USER}"
     else
-      verbose level 1 "System user is: ${SYSTEM_USER}\n"
+      verbose level 2 "System user is: ${SYSTEM_USER}"
     fi
 
     # Checks to see if the specified user is present
     if id "${SYSTEM_USER}" &>/dev/null; then
-      verbose level 1 "System user found: ${SYSTEM_USER}\n"
+      verbose level 3 "User status:\tValid"
     else
-      verbose level 1 "${SYSTEM_USER} not found, creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
+      verbose level 2 "User status:\tNot Found"
+      verbose level 2 "Creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
       sudo_check "to run brew as another user"
       system_user_make
-      # err "${SYSTEM_USER} not found"
     fi
 
     # Checks to see if sudo priviledges are required
@@ -480,14 +491,14 @@ system_user_make() {
   sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
   sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
-  verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges.\n"
+  verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges."
   brass_restart
 }
 system_ifAdmin() {
   if [[ "$1" == "yes" ]]; then
     if [[ "${USER_CLASS}" == "admin" ]]; then
       SYSTEM_IFADMIN="yes"
-      verbose level 1 "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}\n"
+      verbose level 1 "Brew admin enabled: ${CONSOLE_USER} is an admin user. Running brew as ${CONSOLE_USER}"
       SYSTEM_USER="${CONSOLE_USER}"
       env_brew
     fi
@@ -504,16 +515,18 @@ system_secret() {
 
 #< Xcode Functions
 env_xcode() {
-  XCODE_PREFIX="/Library/Developer/CommandLineTools"
-  verbose level 2 "xcode commandlinetools prefix is ${XCODE_PREFIX}\n"
+  if [[ -z "${XCODE_PREFIX}" ]]; then
+    XCODE_PREFIX="/Library/Developer/CommandLineTools"
+    verbose level 3 "xcode prefix:\t${XCODE_PREFIX}"
+  fi
 }
 xcode_trick() {
   /usr/bin/sudo touch "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-  verbose level 2 "added temp file for xcode commandlinetools update\n"
+  verbose level 2 "added temp file for xcode commandlinetools update"
 }
 xcode_untrick() {
   /usr/bin/sudo /bin/rm -f "/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-  verbose level 2 "removed temp file for xcode commandlinetools update\n"
+  verbose level 2 "removed temp file for xcode commandlinetools update"
 }
 xcode_check_installed() {
   if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then env_xcode;
@@ -529,9 +542,9 @@ xcode_check_installed() {
 xcode_installed_version() {
   # Sets xcode installed version variable
   if [[ -n "${XCODE_PREFIX}" ]]; then
-    verbose level 1 "Checking for the installed version of xcode CommandLineTools\n"
+    verbose level 1 "Checking for the installed version of xcode CommandLineTools"
     XCODE_INSTALLED_VERSION=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk -F"version: " '{print $2}' | awk -v ORS="" '{gsub(/[[:space:]]/,""); print}' | awk -F"." '{print $1"."$2}')
-    verbose level 1 "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}\n"
+    verbose level 1 "The installed version of xcode CommandLineTools is ${XCODE_INSTALLED_VERSION}"
   fi
 }
 xcode_latest_version() {
@@ -541,7 +554,7 @@ xcode_latest_version() {
     # Sets xcode latest version variable
     echo "Checking for the latest vesrion of xcode CommandLineTools. This may take some time."
     XCODE_LATEST_VERSION=$(/usr/bin/sudo /usr/sbin/softwareupdate -l | awk -F"Version:" '{ print $1}' | awk -F"Xcode-" '{ print $2 }' | sort -nr | head -n1)
-    verbose level 1 "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}\n"
+    verbose level 1 "The latest version of xcode CommandLineTools is ${XCODE_LATEST_VERSION}"
     xcode_untrick &> /dev/null
   fi
 }
@@ -552,17 +565,17 @@ xcode_install () {
     xcode_remove yes
     xcode_trick
     /usr/bin/sudo /usr/sbin/softwareupdate -i Command\ Line\ Tools\ for\ Xcode-"${XCODE_LATEST_VERSION}"
-    verbose level 1 "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')\n"
+    verbose level 1 "\nXcode info:\n$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | sed 's/^/\t\t/')"
     xcode_untrick
   fi
 }
 xcode_remove () {
   if [[ "${@}" == "yes" ]]; then
     if [[ -d "${XCODE_PREFIX}" ]]; then
-      printf "Uninstalling xcode\n"
+      verbose level 1 "Uninstalling xcode"
       sudo rm -r "${XCODE_PREFIX}"
     else
-      printf "xcode not installed\n"
+      verbose level 1 "xcode not installed"
     fi
   fi
 }
@@ -576,7 +589,7 @@ xcode_update() {
       verbose level 1 "\nXcode is outdate, updating Xcode version ${XCODE_LATEST_VERSION} to ${XCODE_LATEST_VERSION}"
       xcode_install yes
     else
-      verbose level 1 "xcode is up to date.\n"
+      verbose level 1 "xcode is up to date."
     fi
   fi
 }
@@ -589,26 +602,26 @@ env_brew() {
     env_system
     if [[ -x "${BREW_BINARY}" ]]; then
       if [[ -z "${SYSTEM_MODE}" ]]; then
-        verbose level 1 "System Mode Enabled: Brew binary is located at $BREW_BINARY\n"
         SYSTEM_MODE="System"
+        verbose level 3 "Set:\tRun Mode $SYSTEM_MODE"
       fi
     else
       if [[ -z "${SYSTEM_MODE}" ]]; then
-        verbose level 1 "System Mode Enabled\n"
         SYSTEM_MODE="System"
+        verbose level 3 "Set:\tRun Mode $SYSTEM_MODE"
       fi
     fi
   else
     env_local
     if [[ -x "${BREW_BINARY}" ]]; then
       if [[ -z "${SYSTEM_MODE}" ]]; then
-        verbose level 1 "User Mode Enabled: Brew binary is located at $BREW_BINARY\n"
         SYSTEM_MODE="User"
+        verbose level 3 "Set:\tRun Mode $SYSTEM_MODE"
       fi
     else
       if [[ -z "${SYSTEM_MODE}" ]]; then
-        verbose level 1 "User Mode Enabled\n"
         SYSTEM_MODE="User"
+        verbose level 3 "Set:\tRun Mode $SYSTEM_MODE"
       fi
     fi
   fi
@@ -624,7 +637,7 @@ env_brew() {
   if [[ -z "${BREW_RESET}" ]]; then
   BREW_RESET="flase"
   fi
-
+  # verbose level 2 "Brew binary:\t$BREW_BINARY"
 }
 brewDo() {
   env_brew
@@ -677,19 +690,19 @@ brew_install() {
     env_brew
     if [[ -x "${BREW_BINARY}" ]]; then
       SYSTEM_VEROBSE="yes"
-      verbose level 1 "brew is already installed to ${BREW_PREFIX}. Resetting brew.\n"
+      verbose level 1 "brew is already installed to ${BREW_PREFIX}. Resetting brew."
       echo "Press ctrl+c to cancel. Timeout:  "; countdown
       BREW_RESET="yes"
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
-        verbose level 1 "Resetting local brew prefix\n"
+        verbose level 1 "Resetting local brew prefix"
         brew_uninstall
       else
-        verbose level 1 "Resetting system brew prefix\n"
+        verbose level 1 "Resetting system brew prefix"
         brew_system_uninstall
       fi
     else
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
-        verbose level 1 "Installing local brew prefix\n"
+        verbose level 1 "Installing local brew prefix"
         user_command mkdir -p "${BREW_PREFIX}"
         # user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
         user_command git clone https://github.com/Homebrew/brew "${BREW_PREFIX}"
@@ -697,7 +710,7 @@ brew_install() {
         user_command "${BREW_PREFIX}"/bin/brew update --force
         chmod -R go-w "$(${BREW_PREFIX}/bin/brew --prefix)/share/zsh"
       else
-        verbose level 1 "Installing system brew prefix\n"
+        verbose level 1 "Installing system brew prefix"
         brew_system_install
       fi
     fi
@@ -738,10 +751,17 @@ brew_system_uninstall () {
   printf "Uninstalling brew from ${BREW_PREFIX}. Press ctrl+c to cancel. Timeout:  "; countdown
   /usr/bin/sudo -u "${SYSTEM_USER}" echo -ne 'y\n' | /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
 }
+brew_reset() {
+  if [[ "${1}" == "yes" ]]; then
+    verbose level 2 "brew reset:\tEnabled"
+    brew_uninstall yes
+    brew_install yes
+  fi
+}
 brew_update() {
   if [[ "$@" == "yes" ]]; then
     brew_check
-    verbose level 1 "brew_update: Enabled. Updating brew\n"
+    verbose level 1 "brew update:\tEnabled"
     brewDo update
   fi
 }
@@ -805,10 +825,10 @@ package_install() {
   cd /Users/"${SYSTEM_USER}"/
   env_package
   if [[ -z $(brewDo list | grep -w "$PACKAGE_INSTALL") ]]; then
-    verbose level 1 "Installing $PACKAGE_INSTALL\n"
+    verbose level 1 "Installing $PACKAGE_INSTALL"
     brewDo install $PACKAGE_INSTALL -f | grep -v "Operation not permitted"
   else
-    verbose level 1 "Updating $PACKAGE_INSTALL\n"
+    verbose level 1 "Updating $PACKAGE_INSTALL"
     brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
   fi
   env_package
@@ -827,16 +847,16 @@ package_manage() {
       verbose level 1 "checking ${PKG_MANAGED}"
     done < <(ls "${PKG_DIR}")
     if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+      verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}"
       printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
-      verbose level 1 "installing ${PACKAGE_MANAGE}\n"
+      verbose level 1 "installing ${PACKAGE_MANAGE}"
       package_install "${PACKAGE_MANAGE}"
       PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
         if [[ ! -z "${PACKAGE_APP}" ]]; then
           dock_add "/Applications/${PACKAGE_APP}"
         fi
     else
-      verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
+      verbose level 1 "${PACKAGE_MANAGE} is already managed"
     fi
   fi
 }
@@ -852,10 +872,10 @@ package_unmanage() {
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
     done < <(ls "${PKG_DIR}")
     if [[ ! -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
-      verbose level 1 "removing "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}\n"
+      verbose level 1 "removing "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}"
       rm "${PKG_DIR}${PACKAGE_MANAGE}".yaml
     else
-      verbose level 1 "${PACKAGE_MANAGE} is already managed\n"
+      verbose level 1 "${PACKAGE_MANAGE} is already managed"
     fi
   fi
 }
@@ -900,11 +920,11 @@ package_outdated() {
       fi
     done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
     if [[ -z "${PKG_MANAGED}" ]] && [[ -z "${PKG_OUTDATED}" ]]; then
-      verbose level 1 "No managed packages found\n"
+      verbose level 1 "No managed packages found"
     elif [[ -z "${PKG_OUTDATED}" ]]; then
       printf "All packages are up to date\n"
     elif [[ ! -z "${PKG_OUTDATED}" ]]; then
-      printf "Package updates available\n"
+      verbose level 1 "Package updates available"
     else
       err "an error has occured\n"
     fi
@@ -918,7 +938,7 @@ package_all() {
     fi
      while IFS= read -r LINE; do
        PKG_MANAGED="$(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-       verbose level 1 "Checking for ${LINE} updates\n"
+       verbose level 1 "Checking for ${LINE} updates"
        echo "progresstext: Updating ${LINE}" | awk -F".yaml" '{print $1}' >> /var/tmp/dialog.log
        cfg="${PKG_DIR}${LINE}"; file="yes"; run_config
      done < <(ls "${PKG_DIR}")
@@ -944,7 +964,7 @@ package_show() {
       fi
     done < <(echo "${PKG_MANAGED}" | tr '\ ' '\n')
     if [[ -z "${PKG_MANAGED}" ]]; then
-      verbose level 1 "No managed packages found\n"
+      verbose level 1 "No managed packages found"
     elif [[ -z "${PKG_OUTDATED}" ]]; then
       printf "### All packages are up to date ###\n"
       printf "${PKG_MANAGED}\n" | tr ' ' '\n' | sed '/^[[:space:]]*$/d'
@@ -990,9 +1010,9 @@ package_option() {
   INSTALLNAME="Install ${APPNAME}"
   DIR="/Applications/${INSTALLNAME}.app/Contents/MacOS";
   if [[ -z $(brewDo list | grep "${APPNAME}") ]] && [[ -z $(/usr/bin/sudo -i -u "${CONSOLE_USER}" "/Users/${CONSOLE_USER}/.homebrew/bin/brew" list | grep "${APPNAME}") ]]; then
-    verbose level 1 "adding installer for ${APPNAME}\n"
+    verbose level 1 "adding installer for ${APPNAME}"
     if [ -d "/Applications/${INSTALLNAME}.app" ]; then
-      verbose level 1 "Installer already present. Overriding\n"
+      verbose level 1 "Installer already present. Overriding"
       rm -r "/Applications/${INSTALLNAME}.app"
     fi
     mkdir -p "${DIR}"
@@ -1016,7 +1036,7 @@ package_option() {
     chmod +x "${DIR}"/"${INSTALLNAME}"
     chown -R "${CONSOLE_USER}": "/Applications/${INSTALLNAME}.app"
   else
-    verbose level 1 "${APPNAME} is already installed\n"
+    verbose level 1 "${APPNAME} is already installed"
   fi
 }
 #>
@@ -1100,7 +1120,7 @@ gui_update() {
     wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
     verbose level 1 "Installing swiftDialog"
     /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
-    verbose level 1 "cleaning brew_depends\n"
+    verbose level 1 "cleaning brew_depends"
     rm -r "${BREW_PREFIX}/install-tmp"
   fi
 }
@@ -1112,43 +1132,31 @@ update_gui() {
     if [[ "${UPDATE}" == "application" ]]; then
       gui_update
       daemon_check -e --name="com.brass.update.application" --binary="/usr/local/bin/brass" --args="--config-command=package_all_enabled" --day="${UPDATE_DAY}" --hour="${UPDATE_HOUR}" --minute="${UPDATE_MINUTE}" --config=enabled
+    elif [[ "${UPDATE}" == "system" ]]; then
+      daemon_check -e --name="com.brass.update.system" --binary="/usr/local/bin/brass" --args="--update-version=${UPDATE_VERSION}" --args="--update-start=enabled" --day="${UPDATE_DAY}" --hour="${UPDATE_HOUR}" --minute="${UPDATE_MINUTE}" --config=enabled
     fi
+  fi
+  unset "${!DAEMON@}"
+  unset "${!UPDATE@}"
+}
+update_start() {
+  echo "update started"
+  if [[ "${@}" == "enabled" ]]; then
+    /usr/bin/sudo curl -s https://raw.githubusercontent.com/grahampugh/erase-install/main/erase-install.sh | sudo bash /dev/stdin --test-run --overwrite --version="${UPDATE_VERSION}" --update --reinstall --confirm --depnotify
   fi
 }
 update_system() {
-  echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-  <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-  <plist version=\"1.0\">
-  <dict>
-    <key>Label</key>
-    <string>com.github.macadmins.Nudge</string>
-    <key>ProgramArguments</key>
-    <array>
-      <string>/Applications/Utilities/Nudge.app/Contents/MacOS/Nudge</string>
-    </array>
-    <key>RunAtLoad</key>
-    <false/>
-    <key>StartCalendarInterval</key>
-    <array>
-      <dict>
-          <key>Hour</key>
-          <integer>8</integer>
-          <key>Minute</key>
-          <integer>5</integer>
-      </dict>
-      <dict>
-          <key>Hour</key>
-          <integer>16</integer>
-          <key>Minute</key>
-          <integer>55</integer>
-      </dict>
-    </array>
-   </dict>
-   </plist>
-  " > /Library/LaunchDaemons/
+  if [[ ! -z "${1}" ]]; then
+    UPDATE_VERSION="${1}"
+    verbose level 3 "Update version:\t${UPDATE_VERSION}"
+    UPDATE="system"
+  fi
+}
+update_version() {
+  UPDATE_VERSION="${1}"
 }
 update_application() {
-  if [[ "${1}" == "enabled" ]]; then
+  if [[ "${1}" == "all" ]]; then
     UPDATE="application"
   fi
 }
@@ -1182,37 +1190,37 @@ update_notification() {
     err "result of update dialog not specified."
   # Checks to see if "Now" option has been selected
   elif [[ "${UPDATE_WHEN}" == "Now" ]]; then
-    verbose level 1 "update now selected\n"
+    verbose level 1 "update now selected"
     package_all enabled
   # Checks if "Remind me later option has been selected"
   elif [[ "${UPDATE_WHEN}" == "Remind me later" ]]; then
-    verbose level 1 "User selected Remind me later\n"
+    verbose level 1 "User selected Remind me later"
     # Sets notification to run again in 15 minues and alterts the user
-    verbose level 1 "Displaying delay notification to user\n"
+    verbose level 1 "Displaying delay notification to user"
     update_delay & /usr/local/bin/dialog -t "Update Altert" -m "### You will be reminded in 15 minutes" --alignment center -i "${gui_iconPath}" --iconsize 90
   # Checks to see if "Reschedule Alerts" option was selected
   elif [[ "${UPDATE_WHEN}" == "Reschedule Alerts" ]]; then
-    verbose level 1 "User selected reschedule alerts\n"
+    verbose level 1 "User selected reschedule alerts"
     # Gives user option to select a time in which they would like to be alerted
     UPDATE_WHEN_RESCHEDULE="$(/usr/local/bin/dialog -t "LeadingReach Reboot Altert" -m "When would you like to be alterted?" --alignment center -i "${gui_iconPath}" --iconsize 90 --selecttitle "Available altert times" --selectvalues "8:00,9:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00,18:00,19:00" --selectdefault "17:00" | grep "Available altert times" | head -n 1 | awk -F ": " '{print $2}')"
     # Islolateds hour variable
     UPDATE_HOUR="$(echo "${UPDATE_WHEN_RESCHEDULE}" | awk -F ":" '{print $1}')"
     # Isolates minute variable
     UPDATE_MINUTE="$(echo "${UPDATE_WHEN_RESCHEDULE}" | awk -F ":" '{print $2}' | sed 's/[^0-9]*//g')"
-    verbose level 1 "Rescheduled for ${UPDATE_HOUR}:${UPDATE_MINUTE}\n"
+    verbose level 1 "Rescheduled for ${UPDATE_HOUR}:${UPDATE_MINUTE}"
     # Updates hour variable in update launch daemon
     sed -i'' -e "19s/.*/\ \ \ \ \ \ \<integer\>${UPDATE_HOUR}\<\/integer\>/" "${DAEMON_PATH}"
     # Updates minute variable in update launch daemon
     sed -i'' -e "21s/.*/\ \ \ \ \ \ \<integer\>${UPDATE_MINUTE}\<\/integer\>/" "${DAEMON_PATH}"
     echo "Hour is ${UPDATE_HOUR} and minute is ${UPDATE_MINUTE}"
     # Reloads launch daemon
-    verbose level 1 "reloading launch daemon\n"
+    verbose level 1 "reloading launch daemon"
     daemon_reload
     # If the user selects a time before the curent hour, they will be alerted in 15 minutes to update
     if [[ $(date +%H) -lt "${UPDATE_HOUR}" ]]; then
-      verbose level 1 "User scheduled time before curent time.\n"
-      verbose level 1 "Curent hour is$(date +%H) and schedueld hour is ${UPDATE_HOUR}\n"
-      verbose level 1 "Will display update delay notification.\n"
+      verbose level 1 "User scheduled time before curent time."
+      verbose level 1 "Curent hour is$(date +%H) and schedueld hour is ${UPDATE_HOUR}"
+      verbose level 1 "Will display update delay notification."
       update_delay & /usr/local/bin/dialog -t "Update Altert" -m "### Update altert has been successfully updated\n\nAll future alerts will run at the specified time.\n\nYou have schedueld a time before now.\n\nYou will be notifed to update in 15 minutes" --alignment center -i "/Library/Application Support/JAMF/bin/LR.png" --iconsize 90 & exit
     fi
   fi
@@ -1225,10 +1233,12 @@ update_delay() {
 
 #< Daemon Functions
 daemon_check() {
+  verbose level 3 "vvvv Daemon Check vvvv"
   optspec="e-:"
+  local OPTIND
   while getopts "$optspec" flag; do
     case "${flag}" in
-      e) verbose level 1 "daemon check run";;
+      e) verbose level 3 "Daemon check:\tenabled";;
       -)
           case "${OPTARG}" in
               verbose-level=*) # Option to run brass from config yaml file
@@ -1239,44 +1249,50 @@ daemon_check() {
               name=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_name "${val}";;
 
               binary=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_binary "${val}";;
 
               args=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   DAEMON_ARGS=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_args "${val}";;
+
+              os-version=*) # Option to run brass from config yaml file
+                  val=${OPTARG#*=}
+                  opt=${OPTARG%=$val}
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                  daemon_os_version "${val}";;
 
               day=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_day "${val}";;
 
               hour=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_hour "${val}";;
 
               minute=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_minute "${val}";;
 
               config=*) # Option to run brass from config yaml file
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
-                  verbose level 2 "Parsing option: '--${opt}', value: '${val}\n'" >&2
+                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   daemon_config "${val}";;
 
               *)
@@ -1293,16 +1309,17 @@ daemon_check() {
       *) help;;
     esac
   done
-  if [ $OPTIND -eq 1 ]; then exit; fi
+  verbose level 3 "^^^^ Daemon Check ^^^^"
 }
 daemon_debug() {
   DAEMON_CONF_DEBUG=$(echo "
+      </array>
     <key>StandardOutPath</key>
       <string>${LOG_DIR}/${DAEMON_FILE}-sout.log</string>
     <key>StandardErrorPath</key>
       <string>${LOG_DIR}/${DAEMON_FILE}-eout.log</string>
     <key>RunAtLoad</key>
-    <true/>")
+    <false/>")
 }
 daemon_name() {
   if [[ -z "$DAEMON_NAME" ]] && [[ -z "$@" ]] ; then
@@ -1315,9 +1332,9 @@ daemon_name() {
     DAEMON_PATH="/Library/LaunchDaemons/${DAEMON_FILE}"
     DAEMON_ENV="UPDATE"
     DAEMON_ENV_STATUS="enabled"
-    verbose level 2 "Daemon name:\t${DAEMON_NAME}"
-    verbose level 2 "Daemon file:\t${DAEMON_FILE}"
-    verbose level 1 "Daemon path:\t${DAEMON_PATH}"
+    verbose level 3 "Daemon name:\t${DAEMON_NAME}"
+    verbose level 3 "Daemon file:\t${DAEMON_FILE}"
+    verbose level 3 "Daemon path:\t${DAEMON_PATH}"
     daemon_debug
     DAEMON_CONF_NAME=$(echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
@@ -1336,7 +1353,7 @@ daemon_binary() {
     err "no command specified\n"
   else
     DAEMON_BINARY=$(echo "${1}" | tr -d '"')
-    verbose level 1 "Daemon binary:\t${DAEMON_BINARY}"
+    verbose level 3 "Daemon binary:\t${DAEMON_BINARY}"
     DAEMON_CONF_BINARY=$(echo "
       <key>Program</key>
         <string>${DAEMON_BINARY}</string>")
@@ -1348,13 +1365,13 @@ daemon_args() {
     err "no command specified\n"
   else
     DAEMON_ARGS=$(echo "${1}" | tr -d '"')
-    verbose level 1 "Daemon args:\t${DAEMON_ARGS}"
+    verbose level 3 "Daemon args:\t${DAEMON_ARGS}"
+    DAEMON_CONF_ARGS2=$(echo "${DAEMON_CONF_ARGS2}
+        <string>${DAEMON_ARGS}</string>")
     DAEMON_CONF_ARGS=$(echo "
       <key>ProgramArguments</key>
       <array>
-        <string>${DAEMON_BINARY}</string>
-        <string>${DAEMON_ARGS}</string>
-      </array>")
+        <string>${DAEMON_BINARY}</string>${DAEMON_CONF_ARGS2}")
       DAEMON_CONF=$(echo "${DAEMON_CONF_NAME}${DAEMON_CONF_BINARY}${DAEMON_CONF_ARGS}${DAEMON_CONF_DEBUG}${DAEMON_CONF_END}")
   fi
 }
@@ -1379,7 +1396,7 @@ daemon_day() {
     else
       DAEMON_DAY=$(echo "$@")
     fi
-    verbose level 1 "Daemon day:\t${DAEMON_DAY}"
+    verbose level 3 "Daemon day:\t${DAEMON_DAY}"
   fi
 }
 daemon_hour() {
@@ -1387,7 +1404,7 @@ daemon_hour() {
     err "nothing specified\n"
   else
     DAEMON_HOUR=$(echo "$@" | tr -d '"')
-    verbose level 1 "Daemon hour:\t${DAEMON_HOUR}"
+    verbose level 3 "Daemon hour:\t${DAEMON_HOUR}"
   fi
 }
 daemon_minute() {
@@ -1395,8 +1412,16 @@ daemon_minute() {
     err "nothing specified\n"
   else
     DAEMON_MINUTE=$(echo "$@" | tr -d '"')
-    verbose level 1 "Daemon minute:\t${DAEMON_MINUTE}"
+    verbose level 3 "Daemon minute:\t${DAEMON_MINUTE}"
     daemon_time
+  fi
+}
+daemon_os_version() {
+  if [[ -z "$@" ]] ; then
+    err "nothing specified\n"
+  else
+    DAEMON_OS_VERSION=$(echo "$@" | tr -d '"')
+    verbose level 3 "Daemon OS Version:\t${DAEMON_OS_VERSION}"
   fi
 }
 daemon_time() {
@@ -1419,20 +1444,31 @@ daemon_time() {
   fi
 }
 daemon_reload() {
-  verbose level 1 "Reloading launch daemon\n"
-  launchctl unload "${@}"
+  verbose level 2 "unloading ${@}"
+  launchctl unload "${@}" > /dev/null
+  verbose level 2 "loading ${@}"
   launchctl load "${@}"
 }
 daemon_config() {
   if [[ "${@}" == "enabled" ]]; then
-    echo "${DAEMON_CONF}" > "${DAEMON_PATH}"
-    if [[ $(/usr/bin/plutil "${DAEMON_PATH}") == "${DAEMON_PATH}: OK" ]]; then
-      verbose level 1 "Daemon check:\tPASS"
-      daemon_reload "${DAEMON_PATH}"
+    echo "${DAEMON_CONF}" > "${DAEMON_PATH}.tmp"
+    if [[ $(cat "${DAEMON_PATH}") != $(cat "${DAEMON_PATH}.tmp") ]]; then
+      verbose level 2 "updating launch daemon"
+      echo "${DAEMON_CONF}" > "${DAEMON_PATH}"
+      if [[ $(/usr/bin/plutil "${DAEMON_PATH}") == "${DAEMON_PATH}: OK" ]]; then
+        verbose level 3 "Daemon check:\tPASS"
+        verbose level 3 "Daemon reload:\tYES"
+        daemon_reload "${DAEMON_PATH}"
+      else
+        verbose level 3 "Daemon check:\tFAIL"
+        cat "${DAEMON_PATH}"
+        rm "${DAEMON_PATH}"
+      fi
     else
-      verbose level 1 "Daemon check:\tFAIL"
-      rm "${DAEMON_PATH}"
+      verbose level 3 "Daemon reload:\tNO"
     fi
+    rm "${DAEMON_PATH}.tmp"
+
   fi
 }
 #>
@@ -1440,27 +1476,27 @@ daemon_config() {
 #< Conf Functions
 config_run() {
   if id "${CONF_USER}" &>/dev/null; then
-    verbose level 1 "Config user found: ${CONF_USER}\n"
+    verbose level 1 "Config user found: ${CONF_USER}"
   else
     err "${CONF_USER} not found\n"
   fi
 
   if [[ ! -d "${CONF_DIR}" ]]; then
-    verbose level 1 "Configuration directory not found. Creating ${CONF_DIR}\n"
+    verbose level 1 "Configuration directory not found. Creating ${CONF_DIR}"
     mkdir -p "${CONF_DIR}"
   else
-    verbose level 1 "Configuration directory found.\n"
+    verbose level 1 "Configuration directory found."
   fi
 
   if [[ ! -f "${CONF_FILE}" ]]; then
-    verbose level 1 "Configuation file not found. Creating ${CONF_FILE}\n"
+    verbose level 1 "Configuation file not found. Creating ${CONF_FILE}"
     touch "${CONF_FILE}"
   else
-    verbose level 1 "Configuation file found. Overriding ${CONF_FILE}\n"
+    verbose level 1 "Configuation file found. Overriding ${CONF_FILE}"
   fi
 
   printf "${CONF_CONTENTS}" > "${CONF_FILE}"
-  verbose level 1 "$(cat "${CONF_FILE}")\n"
+  verbose level 1 "$(cat "${CONF_FILE}")"
   chown -R "${CONF_USER}": "${CONF_DIR}"
 }
 config_user(){
@@ -1483,7 +1519,7 @@ dock_update() {
   URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
   PKG=$(echo $URL | awk -F"/" '{print $NF}')
   if [[ ! -f "${DOCKUTIL_BINARY}" ]]; then
-    verbose level 1 "installing dockutil\n"
+    verbose level 1 "installing dockutil"
     sudo_check "for dockutil\n"
     env_brew
     if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
@@ -1496,7 +1532,7 @@ dock_update() {
     wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
     verbose level 1 "Installing ${PKG}"
     /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
-    verbose level 1 "cleaning brew_depends\n"
+    verbose level 1 "cleaning brew_depends"
     rm -r "${BREW_PREFIX}/install-tmp"
   fi
 }
@@ -1513,7 +1549,7 @@ dock_remove() {
   if [[ -z "$APP_DIR" ]]; then
     APP_DIR="$@"
   fi
-  verbose level 1 "removing from dock $APP_DIR\n"
+  verbose level 1 "removing from dock $APP_DIR"
   console_user_command /usr/local/bin/dockutil --allhomes -r "$APP_DIR"
 }
 #>
@@ -1552,10 +1588,10 @@ brass_update() {
 }
 brass_upgrade() {
   sudo_check "to install brass"
-  curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
+  # curl -H 'Cache-Control: no-cache, no-store' -fsSL "${BRASS_URL}" --output /usr/local/bin/brass
   chmod +x /usr/local/bin/brass
   BRASS_UPGRADED="yes"
-  verbose level 1 "install complete.\n"
+  verbose level 1 "install complete."
 }
 system_branch() {
   BRASS_BRANCH="$@"
@@ -1632,22 +1668,31 @@ brass_debug() {
 
 #< Script Logic
 brass_log "#### BRASS START ####"
+system_runMode local
 if [[ -z $@ ]]; then
   if [[ ! -x /usr/local/bin/brass ]]; then
     printf "Installing brass to /usr/local/bin/brass Press ctrl+c to cancel. Timeout:  "; countdown
     sudo_check "to install brass"
     mkdir -p /usr/local/bin/
     brass_upgrade
-    verbose level 1 "done.\n\n"
+    verbose level 1 "done.\n"
   fi
   if [[ "${BRASS_ENV}" == "enabled" ]]; then
     package_all enabled
   fi
   printf "use brass -h for more infomation.\n"
   sudo_reset
+elif [[ "${@}" == *"verbose-level"* ]]; then
+  SYSTEM_VEROBSE="yes"
+  VERBOSE_LEVEL=$(echo "${@}" | awk -F"verbose-level=" '{print $2}' | awk -F"\ " '{print $1}')
 fi
+verbose level 4 "brass dir:\t${BRASS_DIR}"
+verbose level 4 "brass branch:\t${BRASS_BRANCH}"
+verbose level 4 "brass url:\t${BRASS_URL}"
+verbose level 4 "console user:\t${CONSOLE_USER}"
+verbose level 4 "user class:\t${USER_CLASS}"
 if [[ ! -d "${BRASS_DIR}" ]]; then
-  verbose level 1 "brass directory not found. Creating ${BRASS_DIR}\n"
+  verbose level 1 "brass directory not found. Creating ${BRASS_DIR}"
   user_command mkdir -p "${BRASS_DIR}"
 fi
 if [[ ! -d ${BRASS_DIR}pkg ]]; then
@@ -1657,13 +1702,9 @@ fi
 if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
-system_runMode local
 conf_get yes
-verbose level 1 "$@"
 SCRIPT_CHECK="$@"
 script_check "$@"
-#< Verbose level
-#>
 sudo_reset
-verbose level 1 "$(date): ##### BRASS END #####\n"
+verbose level 1 "##### BRASS END #####"
 #>
