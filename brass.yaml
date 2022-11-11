@@ -1,12 +1,25 @@
 brass:
   update: yes
-
-system: 
-  runMode: local
+  
+system:
   verbose: yes
   user: lcadmin
-  ifAdmin: no
+  runMode: local
   force: yes
+
+update:
+  application: all
+  day: tuesday
+  hour: 17
+  minute: 29
+  gui: enabled
+
+update:
+  system: 13.0.1
+  day: friday
+  hour: 10
+  minute: 51
+  gui: enabled
 
 package:
   manage: wget
