@@ -1,27 +1,5 @@
 #!/bin/bash
 
-#< Enviroment variables
-# brass directory
-BRASS_DIR="/opt/brass/"
-BRASS_CONF_FILE="brass.yaml"
-# brass_url - brass script URL
-if [[ -f "${BRASS_DIR}${BRASS_CONF_FILE}" ]] && [[ -n $(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}') ]]; then
-  BRASS_BRANCH=$(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}')
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
-else
-  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
-fi
-# consoleUser - Get current logged in user
-CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
-
-# userClass - Get if current logged in user is admin or standard
-USER_CLASS=$(if groups "${CONSOLE_USER}" | grep -q -w admin; then
-  echo "admin"
-  else
-  echo "standard"
-fi)
-#>
-
 #< System requirements
 # This allows err funtion to exit script whith in a subshell
 set -E
@@ -30,6 +8,7 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 
 #< Script Functions
 script_check() {
+  verbose level 4 "Parsing option: $@"
   optspec=":g:j:ZvVxcs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:L-:"
   local OPTIND
   while getopts "$optspec" flag; do
@@ -80,13 +59,13 @@ script_check() {
       -)
           case "${OPTARG}" in
 
-            verbose-level=*) # Option to run brass from config yaml file
+            verbose-level=*) # Display verbose information levels 0 - 4
                 val=${OPTARG#*=}
                 VERBOSE_LEVEL=${OPTARG#*=}
                 opt=${OPTARG%=$val}
                 verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
 
-            log)
+            log) # Displays brass log file
                 val="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
                 echo "Parsing option: '--${OPTARG}', value: '${val}'" >&2;
                 system_log;;
@@ -99,14 +78,14 @@ script_check() {
                   file="yes"
                   run_config;;
 
-              config-command=*) # Option to run brass from config yaml file
+              config-command=*) # Run brass funtions
                   val=${OPTARG#*=}
                   cfg=${OPTARG#*=}
                   opt=${OPTARG%=$val}
                   verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   eval "${cfg}";;
 
-              config-url=*) # Option to run brass from config yaml file
+              config-url=*) # Option to run brass from linked config yaml file
                   val=${OPTARG#*=}
                   cfg=${OPTARG#*=}
                   opt=${OPTARG%=$val}
@@ -114,32 +93,25 @@ script_check() {
                   url="yes"
                   run_config;;
 
-              config-token=*) # Option to run brass from config yaml file
+              config-token=*) # Use token like a github access token to run brass from linked config yaml fil
                   val=${OPTARG#*=}
                   token=${OPTARG#*=}
                   opt=${OPTARG%=$val}
                   verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
 
-              config-secret=*) # Option to run brass from config yaml file
-                  val=${OPTARG#*=}
-                  secret=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  token=$(cat "${secret}");;
-
-              brew-reset=*) # Option to run brass from config yaml file
+              brew-reset=*) # Option to reinstall bew prefix
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
                   verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   brew_reset "${val}";;
 
-              update-version=*) # Option to run brass from config yaml file
+              update-version=*) # select os update version
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
                   verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
                   update_version "${val}";;
 
-              update-start=*) # Option to run brass from config yaml file
+              update-start=*) # starts update if enabled
                   val=${OPTARG#*=}
                   opt=${OPTARG%=$val}
                   verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
@@ -168,66 +140,72 @@ script_check() {
   done
   if [ $OPTIND -eq 1 ]; then system_user; brewDo "$@"; fi
 }
-say() {
-  printf "$(date): $@" >> "${LOG_FILE}"
-  if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
-    printf "$@"
-  fi
-}
 print_verbose() {
   if [[ ${SYSTEM_VEROBSE} == "yes" ]]; then
     printf "${VERBOSE_MESSAGE}\n" | tr -d '"'
   fi
 }
 verbose() {
-  if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]] || [[ "${2}" == "3" ]]; then
+  if [[ "${1}" == "level" ]] && [[ "${2}" == "0" ]] || [[ "${2}" == "1" ]] || [[ "${2}" == "2" ]] || [[ "${2}" == "3" ]] || [[ "${2}" == "4" ]]; then
     VERBOSE_LEVEL_SET="${2}"
     VERBOSE_MESSAGE="\"${3}\""
-    if [[ "${VERBOSE_LEVEL_SET}" != "3" ]]; then
+    if [[ "${VERBOSE_LEVEL_SET}" != "3" ]] && [[ "${VERBOSE_LEVEL_SET}" != "4" ]]; then
       printf "$(date): ${VERBOSE_MESSAGE}\n" | tr -d '"' >> "${LOG_FILE}"
     fi
     if [[ "${2}" == "0" ]]; then
       print_verbose
     elif [[ "${VERBOSE_LEVEL_SET}" == "1" ]]; then
-      if [[ "${VERBOSE_LEVEL}" == "1" ]] || [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]]; then
+      if [[ "${VERBOSE_LEVEL}" == "1" ]] || [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]] || [[ "${VERBOSE_LEVEL}" == "4" ]]; then
         print_verbose
       fi
     elif [[ "${VERBOSE_LEVEL_SET}" == "2" ]]; then
-        if [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]]; then
+        if [[ "${VERBOSE_LEVEL}" == "2" ]] || [[ "${VERBOSE_LEVEL}" == "3" ]] || [[ "${VERBOSE_LEVEL}" == "4" ]]; then
           print_verbose
         fi
     elif [[ "${VERBOSE_LEVEL_SET}" == "3" ]]; then
-      if [[ "${VERBOSE_LEVEL}" == "3" ]]; then
+      if [[ "${VERBOSE_LEVEL}" == "3" ]] || [[ "${VERBOSE_LEVEL}" == "4" ]]; then
+        printf "$(date): ${VERBOSE_MESSAGE}\n" | tr -d '"' >> "${LOG_FILE}"
+        print_verbose
+      fi
+    elif [[ "${VERBOSE_LEVEL_SET}" == "4" ]]; then
+      if [[ "${VERBOSE_LEVEL}" == "4" ]]; then
         printf "$(date): ${VERBOSE_MESSAGE}\n" | tr -d '"' >> "${LOG_FILE}"
         print_verbose
       fi
     fi
   fi
 }
+verbose_test() {
+  verbose level 0 "verbose level 0"
+  verbose level 1 "verbose level 1"
+  verbose level 2 "verbose level 2"
+  verbose level 3 "verbose level 3"
+  verbose level 4 "verbose level 4"
+}
 err() {
   printf '%s\n' "$1" >&2
-  printf "$(date): ERROR: $@" >> "${LOG_FILE}"
+  printf "$(date): ERROR:\t$@" >> "${LOG_FILE}"
   brass_debug
   sudo_reset
   exit 77
 }
 user_command() {
   if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
-    verbose level 2 "running $@ as ${SYSTEM_USER}"
+    verbose level 2 "User cmd:\t$@ as ${SYSTEM_USER}"
       "$@"
   else
     sudo_check "to run as another user"
-    verbose level 2 "running $@ as ${SYSTEM_USER}"
-    /usr/bin/sudo -i -u "${SYSTEM_USER}" $@
+    verbose level 2 "User cmd:\t$@ as ${SYSTEM_USER}"
+    /usr/bin/sudo -i -u "${SYSTEM_USER}" "$@"
   fi
 }
 console_user_command() {
   if [[ "${CONSOLE_USER}" == "${SYSTEM_USER}" ]]; then
-    verbose level 2 "running $@ as ${SYSTEM_USER}"
+    verbose level 2 "User cmd:\t$@ as ${SYSTEM_USER}"
       "$@"
   else
     sudo_check "to run as another user"
-    verbose level 2 "running $@ as ${CONSOLE_USER}"
+    verbose level 2 "User cmd:\t$@ as ${CONSOLE_USER}"
     /usr/bin/sudo -i -u "${CONSOLE_USER}" "$@"
   fi
 }
@@ -244,29 +222,20 @@ countdown() {
   printf "\n"
   sleep 1
 }
-warning() {
-  if [[ -z $noWarnning ]]; then
-  	printf "\n#################################\nTHIS WILL MODIFY THE SUDOERS FILE\n#################################\n(It will change back after completion)\n"
-    printf "Are you sure that you would like to continue? ctrl+c to cancel\n\nTimeout:  "; countdown
-    sleep 1
-  	printf "\nYou have been warned.\n"
-    sleep 1
-  fi
-}
 sudo_check() {
+  verbose level 4 "Status:\tSudo check $@"
   if [[ "${SYSTEM_USER}" != "${CONSOLE_USER}" ]]; then
     # Checks to see if sudo binary is executable
     if [[ ! -x "/usr/bin/sudo" ]]
     then
       err "sudo binary is missing or not executable"
     fi
-
     # Checks to see if script has sudo priviledges
     if [ "$EUID" -ne 0 ];then
       err "sudo priviledges are reqired $@"
     fi
   else
-    verbose level 1 "sudo priviledges are not required"
+    verbose level 1 "Status:\tsudo priviledges are not required"
   fi
 }
 sudo_disable() {
@@ -435,16 +404,16 @@ system_user() {
         verbose level 2 "Brass user:\t${@}"
         SYSTEM_USER="${@}"
       elif [[ -z "${@}" ]] && [[ -z "${SYSTEM_USER}" ]]; then
-        verbose level 2 "No user specified. Continuing as ${CONSOLE_USER}"
+        verbose level 2 "Status:\tNo user specified. Continuing as ${CONSOLE_USER}"
         SYSTEM_USER="${CONSOLE_USER}"
       elif [[ -z "${@}" ]] && [[ "${SYSTEM_USER}" ]]; then
-        verbose level 2 "System user is: ${SYSTEM_USER}"
+        verbose level 2 "Status:\tSystem user is ${SYSTEM_USER}"
       fi
     elif [[ -z "${SYSTEM_USER}" ]]; then
-      verbose level 2 "No user specified. Continuing as ${CONSOLE_USER}"
+      verbose level 2 "Status:\tNo user specified. Continuing as ${CONSOLE_USER}"
       SYSTEM_USER="${CONSOLE_USER}"
     else
-      verbose level 2 "System user is: ${SYSTEM_USER}"
+      verbose level 2 "Status:\tSystem user is ${SYSTEM_USER}"
     fi
 
     # Checks to see if the specified user is present
@@ -452,7 +421,7 @@ system_user() {
       verbose level 3 "User status:\tValid"
     else
       verbose level 2 "User status:\tNot Found"
-      verbose level 2 "Creating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
+      verbose level 2 "Status:\tCreating ${SYSTEM_USER}. ctrl+c to cancel:  "; countdown
       sudo_check "to run brew as another user"
       system_user_make
     fi
@@ -1104,7 +1073,7 @@ gui_allowCancel() {
   fi
 }
 gui_update() {
-  if [[ ! -d /Library/Application\ Support/Dialog ]]; then
+  if [[ ! -d /Library/Application\ Support/Dialog ]] && [[ $(which wget) != "wget not found" ]]; then
     sudo_check "for swiftDialog\n"
     env_brew
     if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
@@ -1122,6 +1091,8 @@ gui_update() {
     /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
     verbose level 1 "cleaning brew_depends"
     rm -r "${BREW_PREFIX}/install-tmp"
+  else
+    verbose level 3 "gui_update:\tNo"
   fi
 }
 #>
@@ -1142,7 +1113,7 @@ update_gui() {
 update_start() {
   echo "update started"
   if [[ "${@}" == "enabled" ]]; then
-    /usr/bin/sudo curl -s https://raw.githubusercontent.com/grahampugh/erase-install/main/erase-install.sh | sudo bash /dev/stdin --test-run --overwrite --version="${UPDATE_VERSION}" --update --reinstall --confirm --depnotify
+    /usr/bin/sudo curl -s https://raw.githubusercontent.com/grahampugh/erase-install/main/erase-install.sh | sudo bash /dev/stdin --overwrite --version="${UPDATE_VERSION}" --update --reinstall --confirm --depnotify
   fi
 }
 update_system() {
@@ -1666,6 +1637,35 @@ brass_debug() {
 }
 #>
 
+#< Enviroment variables
+# brass directory
+BRASS_DIR="/opt/brass/"
+verbose level 4 "brass dir:\t${BRASS_DIR}"
+# brass configuration file
+BRASS_CONF_FILE="brass.yaml"
+verbose level 4 "brass conf:\t${BRASS_DIR}${BRASS_CONF_FILE}"
+# brass_url - brass script URL
+if [[ -f "${BRASS_DIR}${BRASS_CONF_FILE}" ]] && [[ -n $(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}') ]]; then
+  BRASS_BRANCH=$(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}')
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/$BRASS_BRANCH/brass.sh"
+else
+  BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-local/brass.sh"
+fi
+verbose level 4 "brass branch:\t${BRASS_BRANCH}"
+verbose level 4 "brass url:\t${BRASS_URL}"
+# consoleUser - Get current logged in user
+CONSOLE_USER=$(ls -l /dev/console | awk '{ print $3 }')
+verbose level 4 "console user:\t${CONSOLE_USER}"
+
+# userClass - Get if current logged in user is admin or standard
+USER_CLASS=$(if groups "${CONSOLE_USER}" | grep -q -w admin; then
+  echo "admin"
+  else
+  echo "standard"
+fi)
+verbose level 4 "user class:\t${USER_CLASS}"
+#>
+
 #< Script Logic
 brass_log "#### BRASS START ####"
 system_runMode local
@@ -1686,11 +1686,6 @@ elif [[ "${@}" == *"verbose-level"* ]]; then
   SYSTEM_VEROBSE="yes"
   VERBOSE_LEVEL=$(echo "${@}" | awk -F"verbose-level=" '{print $2}' | awk -F"\ " '{print $1}')
 fi
-verbose level 4 "brass dir:\t${BRASS_DIR}"
-verbose level 4 "brass branch:\t${BRASS_BRANCH}"
-verbose level 4 "brass url:\t${BRASS_URL}"
-verbose level 4 "console user:\t${CONSOLE_USER}"
-verbose level 4 "user class:\t${USER_CLASS}"
 if [[ ! -d "${BRASS_DIR}" ]]; then
   verbose level 1 "brass directory not found. Creating ${BRASS_DIR}"
   user_command mkdir -p "${BRASS_DIR}"
