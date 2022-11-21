@@ -460,6 +460,7 @@ system_user_make() {
   sudo dscl . -create "/Users/${SYSTEM_USER}" NFSHomeDirectory "/Users/${SYSTEM_USER}"
   sudo dscl . -append /Groups/admin GroupMembership "${SYSTEM_USER}"
   sudo chown -R "${SYSTEM_USER}":staff "/Users/${SYSTEM_USER}"
+  sudo chmod -R 775 "/Users/${SYSTEM_USER}"
   verbose level 1 "successfully created ${SYSTEM_USER} with UID ${uid} and GID ${gid} with admin priviledges."
   brass_restart
 }
@@ -673,7 +674,8 @@ brew_install() {
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
         verbose level 1 "Installing local brew prefix"
         mkdir -p "${BREW_PREFIX}"
-        chmod 775 "${BREW_PREFIX}"
+        chmod -R 775 "${BREW_PREFIX}"
+        chown -R "${SYSTEM_USER}:staff" "${BREW_PREFIX}"
         # user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
         user_command git clone https://github.com/Homebrew/brew "${BREW_PREFIX}"
         eval "$(${BREW_PREFIX}/bin/brew shellenv)"
@@ -1579,6 +1581,7 @@ brass_changeBranch() {
   brass_update yes
 }
 brass_restart() {
+  sleep 5
   SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
   RESTART_COMMAND="/bin/bash ${SCRIPT_DIR}/$(basename "$0") ${SCRIPT_CHECK}"
   verbose level 1 "Restarting brass ${RESTART_COMMAND} ${SCRIPT_CHECK}"
