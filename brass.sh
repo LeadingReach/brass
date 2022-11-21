@@ -975,8 +975,7 @@ package_option() {
     mkdir -p "${BRASS_DIR}icns"
   fi
   if [[ ! -f "${BRASS_DIR}icns/download.icns" ]]; then
-    wget -P ${BRASS_DIR}icns https://findicons.com/icon/download/direct/93407/gnome_app_install/128/icns
-    mv "${BRASS_DIR}icns/icns" "${BRASS_DIR}icns/download.icns"
+    curl https://findicons.com/icon/download/direct/93407/gnome_app_install/128/icns --output "${BRASS_DIR}icns/download.icns"
   fi
   APPNAME="${1}"
   INSTALLNAME="Install ${APPNAME}"
@@ -1076,7 +1075,7 @@ gui_allowCancel() {
   fi
 }
 gui_update() {
-  if [[ ! -d /Library/Application\ Support/Dialog ]] && [[ $(which wget) != "wget not found" ]]; then
+  if [[ ! -d /Library/Application\ Support/Dialog ]]; then
     sudo_check "for swiftDialog\n"
     env_brew
     if [[ -d "${BREW_PREFIX}/install-tmp" ]]; then
@@ -1089,7 +1088,7 @@ gui_update() {
     URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | awk -F\" '/browser_download_url.*.pkg/{print $(NF-1)}')
     PKG=$(echo $URL | awk -F"/" '{print $NF}')
     verbose level 1 "Downloading swiftDialog"
-    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
+    curl -L "$URL" --output "${BREW_PREFIX}/install-tmp/${PKG}"
     verbose level 1 "Installing swiftDialog"
     /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
     verbose level 1 "cleaning brew_depends"
@@ -1503,11 +1502,11 @@ dock_update() {
     verbose level 1 "creating ${BREW_PREFIX}/install-tmp"
     mkdir -p "${BREW_PREFIX}/install-tmp"
     verbose level 1 "Downloading ${PKG}"
-    wget "$URL" -P "${BREW_PREFIX}/install-tmp/"
+    curl -L "$URL" --output "${BREW_PREFIX}/install-tmp/${PKG}"
     verbose level 1 "Installing ${PKG}"
     /usr/sbin/installer -pkg "${BREW_PREFIX}/install-tmp/${PKG}" -target /
     verbose level 1 "cleaning brew_depends"
-    rm -r "${BREW_PREFIX}/install-tmp"
+    # rm -r "${BREW_PREFIX}/install-tmp"
   fi
 }
 dock_add() {
