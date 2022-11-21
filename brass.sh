@@ -672,7 +672,6 @@ brew_install() {
     else
       if [[ "${SYSTEM_RUNMODE}" == "local" ]]; then
         verbose level 1 "Installing local brew prefix"
-        user_command mkdir -p "${BREW_PREFIX}"
         # user_command curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "${BREW_PREFIX}"
         user_command git clone https://github.com/Homebrew/brew "${BREW_PREFIX}"
         eval "$(${BREW_PREFIX}/bin/brew shellenv)"
@@ -1578,7 +1577,8 @@ brass_changeBranch() {
   brass_update yes
 }
 brass_restart() {
-  RESTART_COMMAND="/bin/bash $(pwd)/$(basename "$0") ${SCRIPT_CHECK}"
+  SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+  RESTART_COMMAND="/bin/bash ${SCRIPT_DIR}/$(basename "$0") ${SCRIPT_CHECK}"
   verbose level 1 "Restarting brass ${RESTART_COMMAND}"
   exec ${RESTART_COMMAND} && exit
 }
