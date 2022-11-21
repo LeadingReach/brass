@@ -9,6 +9,8 @@ trap '[ "$?" -ne 77 ] || exit 77' ERR
 #< Script Functions
 script_check() {
   verbose level 4 "Parsing option: $@"
+  SCRIPT_CHECK="${@}"
+  verbose level 4 "Status:\tSCRIPT_CHECK=${SCRIPT_CHECK}"
   optspec=":g:j:ZvVxcs:iruzp:P:d:t:Q:f:nlae:bqhygMmUoOND:w:W:L-:"
   local OPTIND
   while getopts "$optspec" flag; do
@@ -1702,7 +1704,7 @@ if [[ "${XCODE_CHECK_INSTALLED}" != "yes" ]]; then
   xcode_check_installed
 fi
 conf_get yes
-SCRIPT_CHECK="$@"
+SCRIPT_CHECK="${@}"
 script_check "$@"
 sudo_reset
 verbose level 1 "##### BRASS END #####"
