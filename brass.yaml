@@ -22,7 +22,6 @@ update:
   gui: enabled
 
 package:
-  manage: wget
   manage: google-chrome
   manage: google-drive
   manage: slack
