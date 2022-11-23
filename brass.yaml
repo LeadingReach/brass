@@ -1,6 +1,6 @@
 brass:
   update: yes
-  
+
 system:
   verbose: yes
   user: lcadmin
@@ -20,6 +20,10 @@ update:
   hour: 10
   minute: 51
   gui: enabled
+
+dock:
+  clear: on-setup
+  auto: enabled
 
 package:
   manage: google-chrome
