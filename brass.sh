@@ -832,7 +832,6 @@ package_install() {
     verbose level 1 "Updating $PACKAGE_INSTALL"
     brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
   fi
-  unset PACKAGE_APP
   PACKAGE_APP="$(brewDo list "${PACKAGE_INSTALL}" | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
   if [[ ! -z "${PACKAGE_APP}" ]]; then
     dock_auto "/Applications/${PACKAGE_APP}"
@@ -1559,9 +1558,7 @@ dock_auto() {
 }
 dock_add() {
   dock_update
-  if [[ -z "$APP_DIR" ]]; then
-    APP_DIR="$@"
-  fi
+  APP_DIR="${@}"
   verbose level 1 "adding to dock $APP_DIR\n"
   console_user_command /usr/local/bin/dockutil --allhomes -a "$APP_DIR"
 }
@@ -1723,6 +1720,7 @@ verbose level 4 "user class:\t${USER_CLASS}"
 #>
 
 #< Script Logic
+NONINTERACTIVE=1
 brass_log "#### BRASS START ####"
 system_runMode local
 if [[ -z $@ ]]; then
