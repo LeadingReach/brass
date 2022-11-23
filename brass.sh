@@ -17,16 +17,13 @@ script_check() {
     case "${flag}" in
     # YAML Config Functions
       c) package_all_enabled;;
-      g) cfg="$OPTARG"; url="yes"; run_config; exit;; # Option to run brass from remote config yaml file
-      j) token="$OPTARG";; # Option to select GitHub Secure Token to access yaml config files
       t) secret="$OPTARG"; token=$(cat "${secret}");; # Option to pull GitHub Secure Token from a file to access yaml config files
     # CLI System Functions
       Z) system_runMode system; env_brew;; # Runs default system brew prefix
       V) VERBOSE_OVERIDE="true";;
-      v) system_verbose yes;; # Shows verbose information
+      v) system_verbose yes; VERBOSE_LEVEL=3;; # Shows verbose information
       x) xcode_update yes;; # Checks and updates xcode if available
       s) system_user "$OPTARG";; # Selects which user to run brew as
-      l) system_force yes;; # Force pushes through brass configuration
       a) system_ifAdmin yes;; # Runs brew as
       n) noWarnning="1";;
     # CLI Brew Functions
@@ -50,7 +47,6 @@ script_check() {
       N) gui_update;;
       b) brass_debug;;
       q) brass_update yes;;
-      Q) BRASS_BRANCH="$OPTARG"; brass_changeBranch;;
       O) dock_update;;
       w) APP_DIR="$OPTARG"; dock_add;;
       W) APP_DIR="$OPTARG"; dock_remove;;
@@ -72,58 +68,83 @@ script_check() {
                 echo "Parsing option: '--${OPTARG}', value: '${val}'" >&2;
                 system_log;;
 
-              config-file=*) # Option to run brass from config yaml file
-                  val=${OPTARG#*=}
-                  cfg=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  file="yes"
-                  run_config;;
+            config-file=*) # Option to run brass from config yaml file
+                val=${OPTARG#*=}
+                cfg=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                file="yes"
+                run_config;;
 
-              config-command=*) # Run brass funtions
-                  val=${OPTARG#*=}
-                  cfg=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  eval "${cfg}";;
+            config-command=*) # Run brass funtions
+                val=${OPTARG#*=}
+                cfg=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                eval "${cfg}";;
 
-              config-url=*) # Option to run brass from linked config yaml file
-                  val=${OPTARG#*=}
-                  cfg=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  url="yes"
-                  run_config;;
+            config-url=*) # Option to run brass from linked config yaml file
+                val=${OPTARG#*=}
+                cfg=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                url="yes"
+                run_config;;
 
-              config-token=*) # Use token like a github access token to run brass from linked config yaml fil
-                  val=${OPTARG#*=}
-                  token=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
+            config-token=*) # Use token like a github access token to run brass from linked config yaml fil
+                val=${OPTARG#*=}
+                token=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2;;
 
-              brew-reset=*) # Option to reinstall bew prefix
-                  val=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  brew_reset "${val}";;
+            brew-reset=*) # Option to reinstall bew prefix
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                brew_reset "${val}";;
 
-              update-version=*) # select os update version
-                  val=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  update_version "${val}";;
+            update-version=*) # select os update version
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                update_version "${val}";;
 
-              update-start=*) # starts update if enabled
-                  val=${OPTARG#*=}
-                  opt=${OPTARG%=$val}
-                  verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
-                  update_start "${val}";;
+            update-start=*) # starts update if enabled
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                update_start "${val}";;
 
-              *)
-                  if [ "$OPTERR" = 1 ] && [ "${optspec:0:1}" != ":" ]; then
-                      echo "Unknown option --${OPTARG}" >&2
-                  fi
-                  ;;
+            system-force=*) # yes or enabled to force through configuration
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                system_force "${val}";;
+
+            brass-branch=*) # yes or enabled to force through configuration
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                BRASS_BRANCH="${val}"; brass_changeBranch;;
+
+            brew-user=*) # Selects which user to run brew as
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                system_user "${val}";;
+
+            auto-dock=*) # Selects which user to run brew as
+                val=${OPTARG#*=}
+                opt=${OPTARG%=$val}
+                verbose level 4 "Parsing option: '--${opt}', value: '${val}'" >&2
+                dock_auto "${val}";;
+
+
+            *)
+                if [ "$OPTERR" = 1 ] && [ "${optspec:0:1}" != ":" ]; then
+                    echo "Unknown option --${OPTARG}" >&2
+                fi
+                ;;
           esac;;
       h)
           echo "usage: $0 [-v] [--loglevel[=]<value>]" >&2
@@ -389,10 +410,12 @@ system_runMode() {
 }
 system_force() {
   # Checks to see if system force is enabled
-  if [[ "${@}" != "yes" ]] || [[ -z "${@}" ]]; then
+  if [[ "${@}" != "yes" ]] || [[ "${@}" != "enabled" ]] || [[ -z "${@}" ]]; then
     SYSTEM_FORCE="false"
+    verbose level 3 "Status:\tSystem Force disabled"
   else
     SYSTEM_FORCE="true"
+    verbose level 3 "Status:\tSystem Force Enabled"
     sudo_disable
     brew_install
   fi
@@ -613,6 +636,10 @@ env_brew() {
 }
 brewDo() {
   env_brew
+  if [[ -z "${BREW_BINARY}" ]]; then
+    verbose level 0 "Status\tHomebew is not installed for $SYSTEM_USER. Installing brew prefix ${BREW_PREFIX}"
+    brew_install yes
+  fi
   if [[ "$CONSOLE_USER" == "${SYSTEM_USER}" ]]; then
     if [ "$EUID" -ne 0 ] ;then
       "${BREW_BINARY}" "$@"
@@ -818,16 +845,16 @@ package_manage() {
   if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-      verbose level 1 "checking ${PKG_MANAGED}"
+      verbose level 4 "Array ${PKG_MANAGED}"
     done < <(ls "${PKG_DIR}")
     if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
       verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}"
       printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
-      verbose level 1 "installing ${PACKAGE_MANAGE}"
+      verbose level 1 "Status\t\t${BREW_PREFIX} installing ${PACKAGE_MANAGE}"
       package_install "${PACKAGE_MANAGE}"
       PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
         if [[ ! -z "${PACKAGE_APP}" ]]; then
-          dock_add "/Applications/${PACKAGE_APP}"
+          dock_auto "/Applications/${PACKAGE_APP}"
         fi
     else
       verbose level 1 "${PACKAGE_MANAGE} is already managed"
@@ -982,7 +1009,7 @@ package_option() {
   APPNAME="${1}"
   INSTALLNAME="Install ${APPNAME}"
   DIR="/Applications/${INSTALLNAME}.app/Contents/MacOS";
-  if [[ -z $(brewDo list | grep "${APPNAME}") ]] && [[ -z $(/usr/bin/sudo -i -u "${CONSOLE_USER}" "/Users/${CONSOLE_USER}/.homebrew/bin/brew" list | grep "${APPNAME}") ]]; then
+  if [[ -z $(brewDo list | grep "${APPNAME}") ]] && [[ -f "/Users/${CONSOLE_USER}/.homebrew/bin/brew" ]] && [[ -z $(/usr/bin/sudo -i -u "${CONSOLE_USER}" "/Users/${CONSOLE_USER}/.homebrew/bin/brew" list | grep "${APPNAME}") ]]; then
     verbose level 1 "adding installer for ${APPNAME}"
     if [ -d "/Applications/${INSTALLNAME}.app" ]; then
       verbose level 1 "Installer already present. Overriding"
@@ -1511,6 +1538,24 @@ dock_update() {
     # rm -r "${BREW_PREFIX}/install-tmp"
   fi
 }
+dock_clear() {
+  verbose level 4 "dock clear $@"
+  if [[ "${@}" == "on-setup" ]]; then
+    # /usr/local/bin/dockutil --remove all "/Users/${CONSOLE_USER}"
+    verbose level 4 "removing all dock items\n"
+    awk '!/clear: on-setup/' "${BRASS_DIR}${BRASS_CONF_FILE}"  > "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  && mv "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  "${BRASS_DIR}${BRASS_CONF_FILE}" 
+  fi
+}
+dock_auto() {
+  if [[ "${1}" == "enabled" ]]; then
+    verbose level 2 "Status:\t\tauto dock enabled"
+    DOCK_AUTO="enabled"
+  else
+    if [[ "${DOCK_AUTO}" == "enabled" ]]; then
+      dock_add "${1}"
+    fi
+  fi
+}
 dock_add() {
   dock_update
   if [[ -z "$APP_DIR" ]]; then
@@ -1576,8 +1621,12 @@ brass_changeBranch() {
   BRASS_URL="https://raw.githubusercontent.com/LeadingReach/brass/brass-$BRASS_BRANCH/brass.sh"
   BRASS_CONF_BRANCH=$(cat ${BRASS_DIR}${BRASS_CONF_FILE} | grep branch: | awk -F'branch: ' '{print $2}')
   if [[ "${BRASS_BRANCH}" != "${BRASS_CONF_BRANCH}" ]]; then
-    BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" ${BRASS_DIR}${BRASS_CONF_FILE})
-    echo "${BRASS_CONF}" > ${BRASS_DIR}${BRASS_CONF_FILE}
+    if [[ "${BRASS_BRANCH}" == "brass-local" ]] || [[ "${BRASS_BRANCH}" == "brass-dev" ]] || [[ "${BRASS_BRANCH}" == "brass-unstable" ]]; then
+      BRASS_CONF=$(sed "s/$BRASS_CONF_BRANCH/$BRASS_BRANCH/g" ${BRASS_DIR}${BRASS_CONF_FILE})
+      echo "${BRASS_CONF}" > ${BRASS_DIR}${BRASS_CONF_FILE}
+    else
+      verbose level 0 "Status:\t\"${BRASS_BRANCH}\" is not found. Skipping."
+    fi
   fi
   brass_update yes
 }
