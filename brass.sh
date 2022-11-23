@@ -832,6 +832,7 @@ package_install() {
     verbose level 1 "Updating $PACKAGE_INSTALL"
     brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
   fi
+  unset PACKAGE_APP
   PACKAGE_APP="$(brewDo list "${PACKAGE_INSTALL}" | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
   if [[ ! -z "${PACKAGE_APP}" ]]; then
     dock_auto "/Applications/${PACKAGE_APP}"
