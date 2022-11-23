@@ -1541,7 +1541,7 @@ dock_update() {
 dock_clear() {
   verbose level 4 "dock clear $@"
   if [[ "${@}" == "on-setup" ]]; then
-    # /usr/local/bin/dockutil --remove all "/Users/${CONSOLE_USER}"
+    /usr/local/bin/dockutil --remove all "/Users/${CONSOLE_USER}"
     verbose level 4 "removing all dock items\n"
     awk '!/clear: on-setup/' "${BRASS_DIR}${BRASS_CONF_FILE}"  > "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  && mv "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  "${BRASS_DIR}${BRASS_CONF_FILE}" 
   fi
