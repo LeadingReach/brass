@@ -832,6 +832,10 @@ package_install() {
     verbose level 1 "Updating $PACKAGE_INSTALL"
     brewDo upgrade $PACKAGE_INSTALL | grep -v "Operation not permitted"
   fi
+  PACKAGE_APP="$(brewDo list "${PACKAGE_INSTALL}" | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
+  if [[ ! -z "${PACKAGE_APP}" ]]; then
+    dock_auto "/Applications/${PACKAGE_APP}"
+  fi
   env_package
 }
 package_manage() {
@@ -845,17 +849,12 @@ package_manage() {
   if [[ -d "${PKG_DIR}" ]]; then
     while IFS= read -r LINE; do
       PKG_MANAGED="$PKG_MANAGED $(cat ${PKG_DIR}"${LINE}" | grep "install:" | grep -v "no\|yes" | awk -F'install:' '{print $2}')"
-      verbose level 4 "Array ${PKG_MANAGED}"
     done < <(ls "${PKG_DIR}")
     if [[ -z "$(echo ${PKG_MANAGED} | grep "${PACKAGE_MANAGE}" )" ]]; then
       verbose level 1 "adding "${PACKAGE_MANAGE}".yaml to ${PKG_DIR}"
       printf "package:\n\tinstall: ${PACKAGE_MANAGE}\n" > "${PKG_DIR}${PACKAGE_MANAGE}".yaml
       verbose level 1 "Status\t\t${BREW_PREFIX} installing ${PACKAGE_MANAGE}"
       package_install "${PACKAGE_MANAGE}"
-      PACKAGE_APP="$(brewDo list ${PACKAGE_MANAGE} | grep .app | awk -F"(" '{print $1}' | awk -F"/" '{print $NF}')"
-        if [[ ! -z "${PACKAGE_APP}" ]]; then
-          dock_auto "/Applications/${PACKAGE_APP}"
-        fi
     else
       verbose level 1 "${PACKAGE_MANAGE} is already managed"
     fi
@@ -1539,11 +1538,12 @@ dock_update() {
   fi
 }
 dock_clear() {
+  dock_update
   verbose level 4 "dock clear $@"
   if [[ "${@}" == "on-setup" ]]; then
     /usr/local/bin/dockutil --remove all "/Users/${CONSOLE_USER}"
     verbose level 4 "removing all dock items\n"
-    awk '!/clear: on-setup/' "${BRASS_DIR}${BRASS_CONF_FILE}"  > "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  && mv "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  "${BRASS_DIR}${BRASS_CONF_FILE}" 
+    awk '!/clear: on-setup/' "${BRASS_DIR}${BRASS_CONF_FILE}"  > "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  && mv "${BRASS_DIR}${BRASS_CONF_FILE}.tmp"  "${BRASS_DIR}${BRASS_CONF_FILE}"
   fi
 }
 dock_auto() {
